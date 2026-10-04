@@ -15,6 +15,8 @@
 //   help       057 Window_Skill#update_help：学习点数读哪个变量（编号 + 60）
 //   practice   099 Scene_Practice#check：能否练功、受哪门基础武功的等级限制
 //   npc        029 Game_Enemy#npc_weapon? / npc_base_skill：NPC 的武器与兵刃武功
+// 另有不进基准的硬性检查（src/game/web_skills.rb 载入后生效）：数据库里每件武器都登记了类型、
+//   登记的武功都有名字、点数变量不与已占用变量冲突。
 // 未覆盖（需要跑场景循环或依赖随机数）：099 update_ex、113 Scene_Study#study 的 +60，
 //   013 Data_NPC 的 39..89 循环，026 set_turns 的 72..77，009 Data_Defend 的默认 46。
 //   重构时这几处要人工核对。
@@ -149,6 +151,17 @@ WEAPONS.each do |w|
   m = SKILLS.select { |n| $npc_data = [0, 0, 0, 0, 0, n]; en.npc_weapon?(w) }
   emit.call('npc', w, "base=#{en.npc_base_skill(w).inspect} match=#{m.join(',')}")
 end
+# 硬性检查（不进基准，--update 也不能跳过）：注册表接管后才有意义
+if defined?(WebSkill)
+  $data_weapons.each_with_index do |w, i|
+    next if w.nil? || i == 0
+    emit.call('check', "weapon#{i}", "武器 #{i}「#{w.name}」没有在 WebSkill::WEAPON_TYPES 登记类型") unless WebSkill.weapon_base(i)
+  end
+  WebSkill::SKILLS.each_key do |id|
+    emit.call('check', "name#{id}", "武功 #{id} 在数据库里没有名字") if $data_system.variables[id].to_s.empty?
+    emit.call('check', "point#{id}", "武功 #{id} 的点数变量 #{WebSkill.point_var(id)} 与已占用的变量 91～96 / 151～160 冲突") if (91..96).include?(WebSkill.point_var(id)) || (151..160).include?(WebSkill.point_var(id))
+  end
+end
 lines.join("\n")
 `).toString();
 
@@ -156,6 +169,13 @@ const result = {};
 for (const line of out.split('\n')) {
   const [group, key, value] = line.split('\t');
   (result[group] ??= {})[key] = value;
+}
+
+const checks = Object.values(result.check ?? {});
+delete result.check;
+if (checks.length) {
+  console.log('注册表检查失败：\n  ' + checks.join('\n  '));
+  process.exit(1);
 }
 
 if (update) {

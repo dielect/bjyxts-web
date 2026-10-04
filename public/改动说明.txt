@@ -6,6 +6,21 @@
 新增类格式：类名/类的作用；方法：“方法名：用途”；属性：“属性：用途”
 行数指原工程（PC V1.21 导出脚本，见 game-src/scripts）中的行号。
 
+2026-10-04 武功注册表（为新增武功、武器做准备）
+----------------------------------------------
+src/game/web_skills.rb/新增/WebSkill 模块：武功表（编号 => 分类、基础武功）、武器类型表、启用武功后学会的绝招表、学习点数变量查询。构建时作为脚本「web:武功注册表」插在 117 - Main 之前、web:扩展 之前载入。
+004 - Methods/（全局）/weapon_skill_base、get_all_skill_base、get_weapon_base_skill、weapon_matching_skill?/15-56/由 web_skills.rb 覆盖为查表。未登记类型的武器不再被判定为匹配任何兵刃武功（原版在练功时会因此抛 NoMethodError）。
+006 - Study_Skill/（全局）/study_skill/1-53/由 web_skills.rb 覆盖为查绝招表，学会的绝招与原版相同。
+029 - Game_Enemy/Game_Enemy/npc_weapon?、npc_base_skill/343-370/由 web_skills.rb 覆盖为查武器类型表，结果与原版相同。
+057 - Window_Skill/Window_Skill/refresh、update_help/27-122/由 web_skills.rb 覆盖为按武功表列出；帮助栏的学习点数变量改为查表。
+099 - Scene_Practice/Scene_Practice/update_ex、check/90、120、133/“编号 + 60”改为 WebSkill.point_var；轻功、拳脚的编号区间改为按基础武功判断。
+113 - Scene_Study/Scene_Study/study/233/“编号 + 60”改为 WebSkill.point_var。
+013 - Data_NPC/（全局）/get_npc_data、get_bad_data/301、351/武功编号区间 39..89 改为 WebSkill.all_ids（只少了没有名字的空位编号，结果相同）。
+026 - Game_Battler 4/Game_Battler/set_turns/182/内功区间 72..77 改为 WebSkill.advanced(内功)。
+tools/build.py/PATCHES/新增上述 099、113、013、026 的文本替换，并载入 web_skills.rb。
+tools/skill-baseline-test.mjs/新增/武功与武器分类规则的回归测试，并检查每件武器都已登记类型。
+玩法上的变化：70 凌波微步登记为轻功、84 打狗棒法登记为兵刃（基础武功 39 基本棍法），可以显示和练习；原版两者都无法显示和练习，也没有途径学到，不影响老存档。61 号（没有名字的空位）不再被练功逻辑当作拳脚。
+
 2026-10-04 Ruby 引擎升级（修复移动端“过一会自动刷新/SystemStackError”）
 ----------------------------------------------------------------------
 package.json/依赖/改用 @ruby/4.0-wasm-wasi 2.10.1（原 3.4 版每次 raise/break 漏 C 栈，长时间运行后栈耗尽）。
@@ -72,7 +87,7 @@ static/index.html、tools/build.py/日志入口与构建/加载页、设置页�
 
 115 - --------主体区--------/（全局）/（无）/全部/不载入。原版开一个线程，通过 user32 遍历系统窗口标题，发现“金山游侠”或“Cheat Engine”就结束游戏。浏览器无法访问系统窗口，这项防修改器检测在网页版不生效。
 
-其余 111 个脚本原样载入，没有改动。
+其余 107 个脚本原样载入，没有改动（004、006、029、057 的部分方法由 web:武功注册表 覆盖，见文首 2026-10-04 武功注册表）。
 
 二、新增的类和模块（网页运行环境）
 --------------------------------

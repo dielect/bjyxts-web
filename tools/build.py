@@ -52,6 +52,13 @@ PATCHES = [
     ('056', 'if text.size<=75', 'if text.bytesize<=75', 1),
     ('056', 'help_text[0]=text.slice(0,75)+" →"', 'help_text[0]=RGWeb.bslice(text,0,75)+" →"', 1),
     ('056', 'help_text[1]="← "+text.slice(75,text.size-75)', 'help_text[1]="← "+RGWeb.bslice(text,75,text.bytesize-75)', 1),
+    # 武功分类改为查 src/game/web_skills.rb 的注册表（回归测试：tools/skill-baseline-test.mjs）
+    ('099', 'if skill_number>=64 and skill_number<=69 #轻功', 'if get_all_skill_base(skill_number)==46 #轻功', 1),
+    ('099', 'if skill_number>=53 and skill_number<=61', 'if get_all_skill_base(skill_number)==40', 1),
+    ('099', 'skill_point=skill_number+60', 'skill_point=WebSkill.point_var(skill_number)', 1),
+    ('113', 'skill_point=skill_number+60', 'skill_point=WebSkill.point_var(skill_number)', 1),
+    ('013', 'for i in 39..89', 'for i in WebSkill.all_ids', 2),
+    ('026', 'for i in 72..77', 'for i in WebSkill.advanced(WebSkill::INNER)', 1),
 ]
 
 
@@ -73,6 +80,8 @@ def build_scripts():
         if num in SKIP:
             continue
         if num == '117':
+            # 武功注册表：覆盖原版的武功 / 武器分类判断，必须晚于原版脚本、早于 Main
+            out.append(['web:武功注册表', open(os.path.join(ROOT, 'src', 'game', 'web_skills.rb'), encoding='utf-8').read()])
             # 网页版扩展（前世奇遇 / 数值修改器），必须在 Main 之前载入
             out.append(['web:扩展', open(os.path.join(ROOT, 'src', 'game', 'web_extras.rb'), encoding='utf-8').read()])
         if num == '002':

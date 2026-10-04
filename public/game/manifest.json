@@ -1,6 +1,6 @@
 {
 "wasm": "ruby.wasm?v=88af34da0b",
-"scripts": "game/scripts.json?v=c7e34cad86",
+"scripts": "game/scripts.json?v=4778bf3d6a",
 "images": [
 "Graphics/Animations/Hit.png",
 "Graphics/Battlebacks/BG.png",
