@@ -251,8 +251,10 @@ function layout() {
   const c = $('screen');
   c.style.width = `${Math.floor(640 * scale)}px`;
   c.style.height = `${Math.floor(480 * scale)}px`;
-  document.documentElement.style.setProperty('--side', `${side}px`);
-  document.documentElement.style.setProperty('--pad', `${Math.min(side * 0.92, vh * 0.42)}px`);
+  // 侧栏取画面两侧真实剩余宽度（叠加模式下沿用估算值）
+  const realSide = overlay ? side : Math.max(side, (vw - Math.floor(640 * scale)) / 2);
+  document.documentElement.style.setProperty('--side', `${realSide}px`);
+  document.documentElement.style.setProperty('--pad', `${Math.min(realSide * 0.86, vh * 0.46)}px`);
 }
 
 async function goFullscreenLandscape() {
