@@ -1,0 +1,73 @@
+白金英雄坛说 PC V1.21 · 网页版 —— 改动说明
+==========================================
+
+依据游戏脚本《开源协议》第 4 条，本文逐条列出网页版对原工程的全部改动。
+改动格式：脚本名/类名/方法名/行数/用途
+新增类格式：类名/类的作用；方法：“方法名：用途”；属性：“属性：用途”
+行数指原工程（PC V1.21 导出脚本，见 game-src/scripts）中的行号。
+
+一、修改的原有脚本
+------------------
+
+000 - 开源协议/（全局）/（无）/1-59/协议原文原样保留，作为第一个脚本载入（纯注释）。
+000 - 开源协议/HangupEradication、FSL/（类、模块）/60-185/去掉。这段“Hangup 异常根除”调用 kernel32 挂起和恢复线程，浏览器里没有 Hangup 超时，也无法调用。
+000 - 开源协议/（全局）/游戏主过程外壳/186-205/去掉。原版在这里用 callcc 和 eval 依次执行 $RGSS_SCRIPTS 中的脚本，网页版改由 src/ruby/boot.rb 按相同顺序执行。F12 重置跳转（callcc）在网页版不可用，需要重新开始时刷新页面即可。
+
+001 - Network使用说明/（全局）/（无）/全部/不载入。整段是 =begin…=end 注释，只说明 NetworkSupport.dll 的用法，网页版不联网。
+
+002 - ActorNameInput/（全局）/ActorNameInput/39-49/重写。原版调用 Lib/ActorNameSupport.dll 弹出 Windows 输入框，网页版改用网页对话框输入姓名（最多 6 个字），取消或留空时保留原名。
+
+003 - Background/GC_CLEAR、Graphics 单例/（模块）/全部/不载入。原版调用 Lib/Background.dll 让游戏失去焦点时继续运行，网页版由浏览器负责暂停与恢复（切到后台时暂停音乐）。
+
+005 - NPC_Name/Draw_event_name/draw/17、19、24/把 @name.size*8 改为 @name.bytesize*8。原版运行在 Ruby 1.8 下，String#size 返回 GBK 字节数（每个汉字 2 字节），现在是 UTF-8 字符数，这里改用字节数以保持原来的名牌宽度。
+
+056 - Window_Item/Window_Item/update_help/143、146、147/把 text.size、text.slice 改为按字节计算（bytesize、RGWeb.bslice）。原因同上，保证物品说明仍在原来的位置分成两行。
+
+088 - Scene_Creat/Scene_Create/change_name/61-62/去掉 Thread.new{…} 与 name_thread.exit，改为直接调用 ActorNameInput(1)。网页输入框是异步的，必须在主流程中等待输入结果。
+
+104 - Scene_PreNetBattle/Scene_PreNetBattle/initialize、main/（追加在 108 之后）/覆盖成提示“网页单机版不支持联网对战。”后返回地图。原版依赖 NetworkSupport.dll。
+
+115 - --------主体区--------/（全局）/（无）/全部/不载入。原版开一个线程，通过 user32 遍历系统窗口标题，发现“金山游侠”或“Cheat Engine”就结束游戏。浏览器无法访问系统窗口，这项防修改器检测在网页版不生效。
+
+其余 111 个脚本原样载入，没有改动。
+
+二、新增的类和模块（网页运行环境）
+--------------------------------
+
+以下文件替代 RPG Maker XP 的 RGSS1 运行库（Game.exe + RGSS10xx.dll），不属于原游戏脚本：
+
+src/ruby/rgss_core.rb
+  Color/Tone/Rect/Table：RGSS1 基础数据类型，用 Marshal 读写的格式与原版兼容。
+  Font：字体属性，默认“宋体”22 号。
+  Bitmap：位图，像素操作和绘字交给浏览器 Canvas。
+    text_size：按宋体等宽规则计算宽度（全角字符 = 字号，半角 = 字号一半）。
+  Sprite/Viewport/Plane/Window/Tilemap：显示对象，每帧把状态同步给 JS 渲染器。
+  Graphics：帧循环（40 帧/秒），实现 freeze/transition/frame_reset。
+  Input：按键状态，实现 trigger?/press?/repeat?/dir4/dir8。
+  Audio：BGM/BGS/ME/SE 播放，交给 WebAudio。
+
+src/ruby/rgss_kernel.rb
+  RGWeb：与 JS 通信的桥接模块。
+    utf8：字符串转为 UTF-8。
+    bslice：按 GBK 字节宽度截取字符串（汉字算 2 字节）。
+    await_js：等待浏览器端的异步结果（输入框、弹窗）。
+  Kernel#p/print/msgbox：用网页弹窗显示信息（原版是 Windows 消息框）。
+  load_data/save_data：读写内存文件系统中的 rxdata。
+  Win32API：空实现，所有调用都返回 0，防止残留调用出错。
+  File.open/File#close：写入并关闭文件时，把 Gmud.sav 同步到浏览器 localStorage。
+  Ruby 1.8 行为兼容：Kernel#rand（浮点/0 参数）、Array#to_s（无分隔拼接）、Hash#index、Object#type，
+  以及读入 rxdata 后把字符串统一修正为 UTF-8 编码（RGWeb.fix_enc）。
+
+src/ruby/rpg.rb
+  RPG 模块（RPG::Cache、RPG::Sprite、RPG::Weather 等），来自 mkxp-web 项目（GPL）。
+
+src/rgss.js、src/main.js
+  浏览器端渲染、输入（键盘、触屏虚拟按键）、音频、存档导入导出、横屏处理和加载界面。
+
+三、资源改动
+------------
+
+Audio/SE 等目录中的 .ogg 文件转成 .mp3（Safari 兼容）；原有 .mp3 原样使用。
+显示字体用 Noto Serif CJK SC（思源宋体，SIL OFL 许可）的子集代替系统宋体，字宽按宋体规则排版。
+图片、地图、数据库（Data/*.rxdata）都没有改动。
+存档 Gmud.sav 的格式与 PC 版完全相同。

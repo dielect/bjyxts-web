@@ -1,0 +1,5 @@
+node_modules/
+tools/.chars.txt
+__pycache__/
+*.pyc
+.DS_Store

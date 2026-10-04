@@ -1,0 +1,79 @@
+#==============================================================================
+# ■ Hit_Data
+#------------------------------------------------------------------------------
+# 　读取普通攻击击中目标的描述的方法。
+#==============================================================================
+def draw_hit_result(defender_name,type)
+  type=type.to_i
+  hit_result=[["结果只对#{defender_name}勉强造成轻微的伤害",
+              "结果对#{defender_name}造成了轻微的伤害",
+              "结果对#{defender_name}造成了一处伤害",
+              "结果对#{defender_name}造成了颇为严重的伤害",
+              "结果对#{defender_name}造成了相当严重的伤害",
+              "结果对#{defender_name}造成了十分严重的伤害",
+              "结果对#{defender_name}造成了极其严重的伤害",
+              "结果对#{defender_name}造成了非常可怕的严重伤害"],
+              ["结果只轻轻地划破#{defender_name}的皮肉",
+              "结果#{defender_name}被划出一道细长的血痕",
+              "结果#{defender_name}被割出了一道伤口",
+              "结果#{defender_name}被划出了一道血淋淋的伤口",
+              "结果#{defender_name}被划出了一道又长又深的伤口",
+              "结果#{defender_name}被砍出了一道深及见骨的可怕伤口"],
+              ["结果只轻轻地刺破#{defender_name}皮肉",
+              "结果在#{defender_name}身上刺出一个创口",
+              "结果#{defender_name}被刺入了寸许",
+              "结果刺得#{defender_name}退了几步",
+              "结果刺出一个血肉模糊的伤口",
+              "结果#{defender_name}被刺了个透明窟窿，鲜血飞溅"],
+              ["结果只是轻轻地碰到#{defender_name}",
+              "结果在#{defender_name}的伤处造成一处瘀青",
+              "结果一击命中，#{defender_name}被打肿了一块老高",
+              "结果一击命中，#{defender_name}痛苦地闷哼了一声",
+              "结果『砰』的一声，#{defender_name}退了两步",
+              "结果#{defender_name}连退了好几步，差一点摔倒",
+              "结果重重的击中，#{defender_name}吐出一口鲜血",
+              "结果一声巨响，#{defender_name}像捆稻草般飞了出去"],
+              ["结果#{defender_name}退了半步，毫发无损",
+              "结果给#{defender_name}造成一处瘀伤",
+              "结果一击命中，#{defender_name}痛得弯下腰",
+              "结果#{defender_name}痛苦地闷哼了一声，显然受了点内伤",
+              "结果#{defender_name}摇摇晃晃，一跤摔倒在地",
+              "结果#{defender_name}脸色一下变得惨白，连退了好几步",
+              "结果『轰』的一声，#{defender_name}口中鲜血狂喷而出",
+              "结果#{defender_name}一声惨叫，像滩软泥般塌了下去"],
+              ["结果只是抓破#{defender_name}的一点皮",
+              "结果#{defender_name}被抓出了五条淡淡的血痕",
+              "结果一爪命中，#{defender_name}被抓出了五条血沟",
+              "结果抓下了#{defender_name}一小块皮肉",
+              "结果#{defender_name}皮开肉破，鲜血流了下来",
+              "结果#{defender_name}被抓出了五个血洞，鲜血急喷",
+              "结果#{defender_name}被连皮带肉抓下了一大块，露出了骨头",
+              "结果『喀嚓』一声，#{defender_name}的骨头被抓得粉碎"]]
+  return hit_result[type]
+end
+def draw_hurt_text(defender_name,hp,mhp,type)
+  hp=0 if hp<=0
+  hurt_result=[["（#{defender_name}看起来充满活力，一点也不累）",
+               "（#{defender_name}似乎有些疲惫，但是十分有活力）", 
+               "（#{defender_name}看起来可能有些累了）",
+               "（#{defender_name}动作似乎开始有点不太灵光）",
+               "（#{defender_name}气喘嘘嘘，看起来状况并不太好）",
+               "（#{defender_name}十分疲惫，看来需要好好休息了）",
+               "（#{defender_name}已经头重脚轻，正在勉力支撑）",
+               "（#{defender_name}看起来已经力不从心了）",
+               "（#{defender_name}摇头晃脑，眼看就要倒在地上）",
+               "（#{defender_name}已经陷入半昏迷状态）"], 
+               ["（#{defender_name}看起来气血充盈，并没有受伤）",
+               "（#{defender_name}似乎受了点轻伤，不过看不出来）",
+               "（#{defender_name}看起来可能受了点轻伤）",
+               "（#{defender_name}受了几处伤，不过似乎并不碍事）",
+               "（#{defender_name}受伤不轻，看起来状况并不太好）",
+               "（#{defender_name}动作开始散乱，看来受的伤不轻）",
+               "（#{defender_name}已经伤痕累累，正在勉力支撑）",
+               "（#{defender_name}受伤相当重，只怕有生命危险）",
+               "（#{defender_name}伤重之下已经难以支撑）",
+               "（#{defender_name}受伤过重，已经命在旦夕了）",
+               "（#{defender_name}受伤过重，随时都可能断气）"]]
+  index=(hurt_result[type].size-1)*(1.0-(hp/1.0)/(mhp/1.0))
+  return hurt_result[type][index]
+end
