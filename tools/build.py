@@ -49,6 +49,9 @@ PATCHES = [
     ('088', 'name_thread=Thread.new{ActorNameInput(1)}', 'ActorNameInput(1)', 1),
     ('088', 'name_thread.exit', '', 1),
     ('005', '@name.size*8', '@name.bytesize*8', 3),
+    # 地图名同理：原版按 GBK 字节数（每字 2）算宽度，现在 size 是字符数，地图名会被挤成一小块看不见
+    ('090', '@name.bitmap=Bitmap.new(n.size*8,24)', '@name.bitmap=Bitmap.new(n.bytesize*8,24)', 1),
+    ('090', 'draw_text(0, 0, n.size*12, 24, n)', 'draw_text(0, 0, n.bytesize*8, 24, n)', 1),
     ('056', 'if text.size<=75', 'if text.bytesize<=75', 1),
     ('056', 'help_text[0]=text.slice(0,75)+" →"', 'help_text[0]=RGWeb.bslice(text,0,75)+" →"', 1),
     ('056', 'help_text[1]="← "+text.slice(75,text.size-75)', 'help_text[1]="← "+RGWeb.bslice(text,75,text.bytesize-75)', 1),

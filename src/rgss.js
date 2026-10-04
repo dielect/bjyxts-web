@@ -408,7 +408,9 @@ export class RGRuntime {
         if (!v || !v.rec[9]) continue;
         target = v.items;
       }
-      if (t === 1) target.push({ z: r[5], seq: r[26], rec: r });
+      // 精灵记录共 28 项，创建序号在 r[27]（r[23..26] 是色调）。原先误读 r[26]，所有精灵的序号都成了 0，
+      // 同层时总被画在视口下面（例如地图名被地图盖住）。RGSS 规则：同一 z 按创建先后叠放。
+      if (t === 1) target.push({ z: r[5], seq: r[27], rec: r });
       else if (t === 2) target.push({ z: r[3], seq: r[18], rec: r });
       else if (t === 3) target.push({ z: r[6], seq: r[24], rec: r });
       else if (t === 4) this._tilemapItems(r, target);

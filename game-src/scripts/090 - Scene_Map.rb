@@ -244,7 +244,9 @@ class Scene_Map
   #显示地图名
   def display_mapname
     id=$game_map.map_id
-    key = [id, $data_mapinfos[id].name]
+    # 地图画面（@spriteset）重建后也要重建地图名：同一层的精灵按创建先后叠放，
+    # 复用旧的地图名精灵会被新建的地图图层压在下面（原版每帧都重建，所以总在最上面）
+    key = [id, $data_mapinfos[id].name, @spriteset.object_id]
     if @name && !@name.disposed? && @mapname_key == key
       @name.visible = true
       return
