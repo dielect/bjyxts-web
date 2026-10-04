@@ -6,6 +6,19 @@
 新增类格式：类名/类的作用；方法：“方法名：用途”；属性：“属性：用途”
 行数指原工程（PC V1.21 导出脚本，见 game-src/scripts）中的行号。
 
+2026-10-04 支线：打狗棒法传承
+----------------------------
+src/game/mods/010_打狗棒法.rb/新增/棍类武器 31 齐眉棍、32 熟铜棍、33 绿玉竹杖；绝招 28 天下无狗；商业街新增老乞丐（支线）和棍棒摊（出售 31、32）；五指山新增拾取绿玉竹杖的事件。使用开关 102～104、变量 161。
+src/game/web_skills.rb/WebSkill/weapon_type、perform、attack_words、skill_words、combo、requirement/新增：扩展内容登记武器类型、绝招、招式描述、绝招描述、连击绝招和绝招使用条件。
+src/game/web_mods.rb/WebMod/weapon、skill/新增：读取 Weapons.rxdata、Skills.rxdata 时追加新武器、新绝招。Builder#npc 新增 shop 参数；Commands 新增 gain、lose。
+008 - Data_Attack/（全局）/draw_atk_text/38-47、256/NPC 兵器类型改为 WebSkill.weapon_base；原版表里查不到的招式描述改查 WebSkill.attack_words_for（原版武功不受影响）。
+011 - Data_Skill/（全局）/get_skill_words/最后一行/原版表里查不到的绝招描述改查 WebSkill.skill_words_for。
+025 - Game_Battler 3/Game_Battler/skill_effect/298/连击绝招列表追加 WebSkill::COMBOS 登记的绝招。
+026 - Game_Battler 4/Game_Battler/attack_times/66/登记的连击绝招先取得招式与连击次数，原版绝招不变。
+103 - Scene_Battle 4/Scene_Battle/skill_check/519/原版表里没有的绝招改查 WebSkill::REQUIREMENTS。
+tools/build.py/PATCHES/新增上述 008、011、025、026、103 的文本替换。
+tools/skill-baseline-test.mjs/硬性检查/新增：拳脚兵刃武功都有招式描述；新绝招都有数据、使用条件、描述；连击绝招用到的招式有描述。基准随 31～33 号武器成为棍类而更新。
+
 2026-10-04 地图扩展层：能战斗的 NPC
 ----------------------------------
 src/game/web_mods.rb/WebMod/enemy、patch_enemies、patch_troops、npc_row、finisher_immune?/新增：以原版 NPC 为模板定义新敌人（144 号起），读取 Enemies.rxdata、Troops.rxdata 时追加敌人和同编号敌群；Builder#npc 新增 fight 参数，按原版 NPC 的写法生成战斗分支（战利品、杀死后的道德变化、开关、$live、尸体页、战败处理）；Commands 新增 battle。
@@ -106,7 +119,7 @@ static/index.html、tools/build.py/日志入口与构建/加载页、设置页�
 
 115 - --------主体区--------/（全局）/（无）/全部/不载入。原版开一个线程，通过 user32 遍历系统窗口标题，发现“金山游侠”或“Cheat Engine”就结束游戏。浏览器无法访问系统窗口，这项防修改器检测在网页版不生效。
 
-其余 106 个脚本原样载入，没有改动（004、006、029、057 的部分方法由 web:武功注册表 覆盖，013 的 get_npc_data 由 web:地图扩展 包装，见文首 2026-10-04 各条）。
+其余 103 个脚本原样载入，没有改动（004、006、029、057 的部分方法由 web:武功注册表 覆盖，013 的 get_npc_data 由 web:地图扩展 包装，见文首 2026-10-04 各条）。
 
 二、新增的类和模块（网页运行环境）
 --------------------------------

@@ -16,7 +16,8 @@
 //   practice   099 Scene_Practice#check：能否练功、受哪门基础武功的等级限制
 //   npc        029 Game_Enemy#npc_weapon? / npc_base_skill：NPC 的武器与兵刃武功
 // 另有不进基准的硬性检查（src/game/web_skills.rb 载入后生效）：数据库里每件武器都登记了类型、
-//   登记的武功都有名字、点数变量不与已占用变量冲突。
+//   登记的武功都有名字、点数变量不与已占用变量冲突、拳脚兵刃武功都有招式描述、
+//   新绝招都有数据、使用条件、描述，连击绝招用到的招式有描述。
 // 未覆盖（需要跑场景循环或依赖随机数）：099 update_ex、113 Scene_Study#study 的 +60，
 //   013 Data_NPC 的 39..89 循环，026 set_turns 的 72..77，009 Data_Defend 的默认 46。
 //   重构时这几处要人工核对。
@@ -125,12 +126,26 @@ WEAPONS.each do |w|
 end
 # 硬性检查（不进基准，--update 也不能跳过）：注册表接管后才有意义
 if defined?(WebSkill)
+  ORIGINAL_ATTACK_WORDS = [40, 41, 42, 43, 44, 53, 54, 55, 56, 57, 58, 59, 60, 80, 81, 82, 83, 85, 86, 87, 88, 89]   # 008 Data_Attack 原有的
+  ORIGINAL_PERFORMS = 1..27
+  WebSkill::PERFORMS.values.flatten(1).map { |p| p.is_a?(Array) ? p[0] : p }.uniq.each do |pid|
+    next if ORIGINAL_PERFORMS.include?(pid)
+    emit.call('check', "perform#{pid}", "绝招 #{pid} 不在 Skills 数据里（WebMod.skill）") unless $data_skills[pid]
+    emit.call('check', "req#{pid}", "绝招 #{pid} 没有使用条件（WebSkill.requirement），战斗中选它会出错") unless WebSkill::REQUIREMENTS[pid]
+    emit.call('check', "words#{pid}", "绝招 #{pid} 没有描述（WebSkill.skill_words），战斗中使用会出错") unless WebSkill::SKILL_WORDS[pid]
+    if (c = WebSkill::COMBOS[pid]) && !ORIGINAL_ATTACK_WORDS.include?(c[0]) && !WebSkill::ATTACK_WORDS[c[0]]
+      emit.call('check', "combo#{pid}", "连击绝招 #{pid} 用的武功 #{c[0]} 没有招式描述")
+    end
+  end
   $data_weapons.each_with_index do |w, i|
     next if w.nil? || i == 0
     emit.call('check', "weapon#{i}", "武器 #{i}「#{w.name}」没有在 WebSkill::WEAPON_TYPES 登记类型") unless WebSkill.weapon_base(i)
   end
   WebSkill::SKILLS.each_key do |id|
     emit.call('check', "name#{id}", "武功 #{id} 在数据库里没有名字") if $data_system.variables[id].to_s.empty?
+    if [WebSkill::FIST, WebSkill::WEAPON].include?(WebSkill.category(id)) && !ORIGINAL_ATTACK_WORDS.include?(id) && !WebSkill::ATTACK_WORDS[id]
+      emit.call('check', "attack#{id}", "武功 #{id} 没有招式描述（WebSkill.attack_words），用它攻击时会出错")
+    end
     emit.call('check', "point#{id}", "武功 #{id} 的点数变量 #{WebSkill.point_var(id)} 与已占用的变量 91～96 / 151～160 冲突") if (91..96).include?(WebSkill.point_var(id)) || (151..160).include?(WebSkill.point_var(id))
   end
 end

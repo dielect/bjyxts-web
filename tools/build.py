@@ -61,6 +61,22 @@ PATCHES = [
     ('026', 'for i in 72..77', 'for i in WebSkill.advanced(WebSkill::INNER)', 1),
     # 流星飞掷对 126 号以后的敌人无效；地图扩展层的新敌人默认可以击中（elite 的除外）
     ('025', 'hit=0 if self.id>125', 'hit=0 if WebMod.finisher_immune?(self.id)', 1),
+    # 扩展内容的招式描述、绝招描述、连击绝招、NPC 兵器类型改为可登记（src/game/web_skills.rb）
+    ('008', 'words=attcck_words[sk_id]', 'words=attcck_words[sk_id] || WebSkill.attack_words_for(sk_id,user,objector,weapon_name,sp)', 1),
+    ('008', '''        case $npc_data[9]
+        when 8,9,10,11,12,13,14,1,28,29
+          sk_id=42
+        when 2,3,4,6,7,15,16,17,18,19,20,30
+          sk_id=41
+        when 5,21,22,23,24
+          sk_id=44
+        when 25,26,27
+          sk_id=43
+        end''', '        sk_id=WebSkill.weapon_base($npc_data[9]) || 0', 1),
+    ('011', 'return skills_words_list[id]', 'return skills_words_list[id] || WebSkill.skill_words_for(id,user,objector,weapon_name)', 1),
+    ('025', 'when 4,5,24,22,14,15,8,26,27\n', 'when 4,5,24,22,14,15,8,26,27,*WebSkill::COMBOS.keys\n', 1),
+    ('103', 'for index in skill_levels[id]', 'for index in (skill_levels[id] || WebSkill::REQUIREMENTS.fetch(id))', 1),
+    ('026', '    case id\n    #雪花六出', '    i1, times1 = WebSkill::COMBOS[id] if WebSkill::COMBOS[id]\n    case id\n    #雪花六出', 1),
 ]
 
 

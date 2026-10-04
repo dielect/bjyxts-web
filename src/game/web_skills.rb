@@ -80,7 +80,64 @@ module WebSkill
   WEAPON_OF = {}
   WEAPON_TYPES.each { |base, ids| ids.each { |w| WEAPON_OF[w] = base } }
 
+  # 以下几张表原版没有对应的空位，由扩展内容（src/game/mods）用下面的登记函数填写。
+  # 普通攻击的描述：武功编号 => [[最低等级, 文字, 威力, 命中修正, 部位类型], ...]，与 008 Data_Attack 的格式相同。
+  # 文字里用 %{user}、%{objector}、%{weapon}、%{sp}（攻击部位）代替人称和兵器名。
+  ATTACK_WORDS = {}
+  # 绝招的描述：绝招编号 => [出招, 命中, 被化解]，与 011 Data_Skill 的格式相同，占位符同上（没有 %{sp}）
+  SKILL_WORDS = {}
+  # 连击型绝招：绝招编号 => [出招用哪门武功的招式, 连击次数]，走 026 attack_times
+  COMBOS = {}
+  # 绝招的使用条件：绝招编号 => [[变量, 值], ...]，与 103 Scene_Battle 4 skill_check 的格式相同：
+  # 变量小于 38 时要求“当前启用”等于该值（29 拳脚、30 兵刃、32 内功），否则要求等级不低于该值
+  REQUIREMENTS = {}
+
   module_function
+
+  # 登记武器类型：基础武功 => 武器编号
+  def weapon_type(base, ids)
+    (WEAPON_TYPES[base] ||= []).concat(ids)
+    ids.each { |w| WEAPON_OF[w] = base }
+  end
+
+  # 登记启用武功后学会的绝招
+  def perform(skill_id, *performs)
+    (PERFORMS[skill_id] ||= []).concat(performs)
+  end
+
+  def attack_words(skill_id, entries)
+    ATTACK_WORDS[skill_id] = entries
+  end
+
+  def skill_words(perform_id, entries)
+    SKILL_WORDS[perform_id] = entries
+  end
+
+  def requirement(perform_id, list)
+    REQUIREMENTS[perform_id] = list
+  end
+
+  def combo(perform_id, moves_of:, times:)
+    COMBOS[perform_id] = [moves_of, times]
+  end
+
+  def fill(text, vars)
+    text.gsub(/%\{(\w+)\}/) { vars[$1.to_sym].to_s }
+  end
+
+  # 008 draw_atk_text 在原版表里查不到时调用；查不到返回 nil（与原版行为相同）
+  def attack_words_for(skill_id, user, objector, weapon, sp)
+    list = ATTACK_WORDS[skill_id] or return nil
+    vars = { user: user, objector: objector, weapon: weapon, sp: sp }
+    list.map { |lv, text, *rest| [lv, fill(text, vars), *rest] }
+  end
+
+  # 011 get_skill_words 在原版表里查不到时调用
+  def skill_words_for(perform_id, user, objector, weapon)
+    list = SKILL_WORDS[perform_id] or return nil
+    vars = { user: user, objector: objector, weapon: weapon }
+    list.map { |text| fill(text, vars) }
+  end
 
   def category(id)
     s = SKILLS[id]

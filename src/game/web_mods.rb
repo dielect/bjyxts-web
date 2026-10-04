@@ -44,9 +44,11 @@ module WebMod
   @maps    = {}                                  # 新地图编号 => 定义
   @edits   = Hash.new { |h, k| h[k] = [] }       # 原版地图编号 => [定义块, ...]
   @enemies = {}                                  # 新敌人编号 => 定义
+  @weapons = {}                                  # 新武器编号 => 定义
+  @skills  = {}                                  # 新绝招编号 => 定义
 
   class << self
-    attr_reader :maps, :edits, :enemies
+    attr_reader :maps, :edits, :enemies, :weapons, :skills
 
     # 定义一个能战斗的 NPC 的数据（敌人、敌群、数值表），在地图里用 npc(..., fight: 编号) 摆放。
     #   like：以哪个原版 NPC 为模板（敌人编号），复制它的全部数据后再改
@@ -66,6 +68,42 @@ module WebMod
       raise ArgumentError, "WebMod.enemy #{id}：武功最多 12 门" if skills && skills.size > 12
       @enemies[id] = { name: name, tile: tile, like: like, maxhp: maxhp, maxsp: maxsp, gold: gold,
                        stats: stats, skills: skills, elite: elite }
+    end
+
+    # 新武器 / 新绝招：复制一件原版条目后改字段，读取 Weapons.rxdata / Skills.rxdata 时追加。
+    #   WebMod.weapon 31, like: 25, name: '齐眉棍', atk: 22, price: 500, description: '……'
+    #   WebMod.skill  28, like: 22, name: '天下无狗', sp_cost: 450, description: '……'
+    # 编号要接着原版连续编号（武器 31 起、绝招 28 起）。武器还要在武功注册表登记类型
+    # （WebSkill.weapon_type），绝招要登记由哪门武功学会（WebSkill.perform）和效果。
+    def weapon(id, like:, **attrs)
+      define_record(@weapons, 'Weapons', 31, id, like, attrs)
+    end
+
+    def skill(id, like:, **attrs)
+      define_record(@skills, 'Skills', 28, id, like, attrs)
+    end
+
+    def define_record(table, what, first, id, like, attrs)
+      raise ArgumentError, "WebMod #{what} #{id}：新编号要从 #{first} 开始" if id < first
+      raise ArgumentError, "WebMod #{what} #{id}：重复定义" if table[id]
+      raise ArgumentError, "WebMod #{what} #{id}：缺少 name" unless attrs[:name]
+      table[id] = { like: like, attrs: attrs }
+    end
+
+    def append_records(list, table, what)
+      table.keys.sort.each do |id|
+        d = table[id]
+        base = list[d[:like]]
+        raise ArgumentError, "WebMod #{what} #{id}：模板 #{d[:like]} 不存在" unless base && d[:like] < list.size
+        r = Marshal.load(Marshal.dump(base))
+        r.id = id
+        d[:attrs].each do |k, v|
+          raise ArgumentError, "WebMod #{what} #{id}：没有字段 #{k}" unless r.respond_to?("#{k}=")
+          r.send("#{k}=", v)
+        end
+        list[id] = r
+      end
+      raise ArgumentError, "WebMod #{what}：编号要连续，现在中间有空位" if (1...list.size).any? { |i| list[i].nil? }
     end
 
     # 流星飞掷对原版 126 号以后的敌人无效；新敌人默认可以被击中，elite 的除外
@@ -124,6 +162,10 @@ module WebMod
         patch_enemies(obj)
       elsif fn.to_s =~ /Troops\.rxdata\z/i
         patch_troops(obj)
+      elsif fn.to_s =~ /Weapons\.rxdata\z/i
+        append_records(obj, @weapons, 'Weapons')
+      elsif fn.to_s =~ /Skills\.rxdata\z/i
+        append_records(obj, @skills, 'Skills')
       elsif (id = map_id_of(fn)) && @edits.key?(id)
         b = Builder.new(obj, id, FIRST_EDIT_EVENT_ID)
         @edits[id].each { |blk| blk.call(b) }
@@ -233,7 +275,8 @@ module WebMod
     #         corpse：死后显示的图块，默认 508
     #         杀死后：自开关 A 打开（事件换成第 2 页的尸体），$live[编号] 记为 false。
     #         name、tile 不写时取敌人定义里的。
-    def npc(x, y, name: nil, tile: nil, talk: [], look: nil, fight: nil, &block)
+    #   shop：卖的东西，[[:weapon, 31], [:item, 2], [:armor, 4]]，加一个“交易”选项（与原版小商贩相同）
+    def npc(x, y, name: nil, tile: nil, talk: [], look: nil, fight: nil, shop: nil, &block)
       fight = { enemy: fight } if fight.is_a?(Integer)
       if fight
         d = WebMod.enemies[fight[:enemy]]
@@ -248,14 +291,17 @@ module WebMod
       args = [name, look[:age].to_s].map(&:inspect).join(',') +
              ",$levels[#{look[:level].to_i}],$attacks[#{look[:attack].to_i}]," +
              [look[:items], look[:text]].map(&:inspect).join(',')
-      labels = fight ? %w[交谈 查看 战斗] : %w[交谈 查看]
+      labels = %w[交谈 查看]
+      labels << '战斗' if fight
+      labels << '交易' if shop
       e = event(x, y, name: name, tile: tile) do |c|
         c.script '@s=Draw_event_name.new'
         c.choices(labels) do |i|
-          case i
-          when 0 then block ? block.call(c) : Array(talk).each { |t| c.text t }
-          when 1 then c.script "$scene=Lookover.new(#{args})"
-          when 2 then fight_commands(c, fight)
+          case labels[i]
+          when '交谈' then block ? block.call(c) : Array(talk).each { |t| c.text t }
+          when '查看' then c.script "$scene=Lookover.new(#{args})"
+          when '战斗' then fight_commands(c, fight)
+          when '交易' then shop_commands(c, shop)
           end
         end
         c.script '@s.dispose'
@@ -303,6 +349,17 @@ module WebMod
           lose = f[:lose] || :death
           lose == :death ? c.cmd(117, 25) : c.text(lose.to_s)
         })
+    end
+
+    SHOP_KINDS = { item: 0, weapon: 1, armor: 2 }
+
+    def shop_commands(c, goods)
+      raise ArgumentError, 'shop 至少要有一样东西' if goods.empty?
+      goods.each { |kind, _| raise ArgumentError, "shop 种类应是 :item / :weapon / :armor" unless SHOP_KINDS[kind] }
+      c.script '$game_temp.shop_type=1'
+      kind, id = goods[0]
+      c.cmd(302, SHOP_KINDS[kind], id)
+      goods[1..].each { |k, i| c.cmd(605, SHOP_KINDS[k], i) }
     end
 
     # 第 2 页：自开关 A 打开后显示尸体，不能交互
@@ -366,6 +423,17 @@ module WebMod
 
     def wait(frames)
       cmd(106, frames)
+    end
+
+    # 物品增减：kind 为 :item / :weapon / :armor
+    ITEM_CODES = { item: 126, weapon: 127, armor: 128 }
+
+    def gain(kind, id, n = 1)
+      cmd(ITEM_CODES.fetch(kind), id, 0, 0, n)
+    end
+
+    def lose(kind, id, n = 1)
+      cmd(ITEM_CODES.fetch(kind), id, 1, 0, n)
     end
 
     # 战斗：win / escape / lose 是各分支要执行的 lambda（可省略）
