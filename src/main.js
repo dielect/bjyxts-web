@@ -88,7 +88,12 @@ const storage = {
     const out = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith(SAVE_PREFIX)) out.push([k.slice(SAVE_PREFIX.length), b64dec(localStorage.getItem(k))]);
+      if (!k || !k.startsWith(SAVE_PREFIX)) continue;
+      const path = k.slice(SAVE_PREFIX.length);
+      // '#' 开头的是网页设置（虚拟按键开关、音量），不是 base64 存档
+      if (path.startsWith('#')) continue;
+      try { out.push([path, b64dec(localStorage.getItem(k))]); }
+      catch (e) { console.warn('跳过无法解码的本地存档项', path, e); }
     }
     return out;
   },
