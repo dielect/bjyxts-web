@@ -96,6 +96,18 @@ module WebSkill
 
   module_function
 
+  # 请教 / 秘籍的武功列表：[门派, 师傅或秘籍编号] => [[武功, 最高等级], ...]
+  # 原版逍遥派（门派 7）的秘籍是 1～5，新秘籍从 6 起。113 Scene_Study 在原版表里查不到时用这里的
+  STUDY_LISTS = {}
+
+  def study(school, teacher, list)
+    STUDY_LISTS[[school, teacher]] = list
+  end
+
+  def study_list(school, teacher, original)
+    original || STUDY_LISTS.fetch([school, teacher])
+  end
+
   # 登记新武功：编号、分类、基础武功（技能窗口按登记顺序列在各分类末尾）。名字用 WebMod.variable_name 登记
   def add_skill(id, category, base)
     raise ArgumentError, "武功 #{id} 已登记" if SKILLS.key?(id)

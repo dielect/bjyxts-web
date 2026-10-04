@@ -93,6 +93,11 @@ WebXwx.observe(a, $data_skills[9], win)
 WebXwx.observe(enemy, $data_skills[26], win)
 check.call(WebXwx.memory == [6], "观招后记忆应为 [6]，实际 #{WebXwx.memory.inspect}")
 check.call(WebXwx.seen == [6], '自己用的、左右互搏都不应观到')
+# 获取：无相残卷 → 公共事件 26 → 逍遥派秘籍 6
+check.call($data_items[24] && $data_items[24].name == '无相残卷' && $data_items[24].common_event_id == 26, '物品 24 无相残卷应指向公共事件 26')
+check.call($data_common_events[26] && $data_common_events[26].list.any? { |c| c.code == 355 && c.parameters[0] == '$scene=Scene_Study.new(7,6)' }, '公共事件 26 应打开逍遥派秘籍 6')
+check.call(WebSkill.study_list(7, 6, nil) == [[78, 150]], '逍遥派秘籍 6 应教小无相功到 150 级')
+check.call(WebSkill.study_list(7, 4, [[40, 250], [60, 200]]) == [[40, 250], [60, 200]], '原版秘籍列表应不变')
 errs.empty? ? 'ok' : errs.join("\n")
 `);
 if (out !== 'ok') { console.log(out); process.exit(1); }

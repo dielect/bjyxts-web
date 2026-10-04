@@ -346,6 +346,15 @@ function setupSettings() {
     location.reload();
   });
   $('set-reset').addEventListener('click', async () => { location.reload(); });
+  // 原版只有一个存档位，标题画面有存档就直接读档；想从头玩只能删掉存档
+  $('set-newgame').addEventListener('click', async () => {
+    const has = !!getFile(window.__gameRoot, 'Gmud.sav');
+    if (!has) { await ui.alert('当前还没有存档。页面将重新载入，从头开始。'); location.reload(); return; }
+    if (!await ui.confirm('删除当前存档，从头开始？\n删除后无法恢复。需要的话，请先点“导出存档”备份。')) return;
+    if (!await ui.confirm('再确认一次：真的删除存档吗？')) return;
+    storage.remove('Gmud.sav');
+    location.reload();
+  });
   // ---- 沙盒模式：指令由 Ruby 端（src/game/web_extras.rb, WebCheat.poll）每 5 帧取走一次。
   // 当前存档开启沙盒后才能修改数值；Ruby 端也会拒绝未开启时的修改。
   const msg = (t) => { $('cheat-msg').textContent = t; };

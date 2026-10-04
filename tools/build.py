@@ -82,6 +82,8 @@ PATCHES = [
     ('102', 'if @active_battler.sp<@skill.sp_cost', 'if @active_battler.sp<WebSkill.sp_cost(@active_battler, @skill.id)', 1),
     ('103', '@active_battler.sp -= @skill.sp_cost', '@active_battler.sp -= WebSkill.consume_sp(@active_battler, @skill.id)', 1),
     ('055', 'skill.sp_cost.to_s', 'WebSkill.sp_cost(@actor, skill.id).to_s', 1),
+    # 请教 / 秘籍列表：原版表里没有的（新秘籍）查 WebSkill::STUDY_LISTS
+    ('113', '    if @school !=7\n      @top_window', '    @skill_list = WebSkill.study_list(@school, @teacher, @skill_list)\n    if @school !=7\n      @top_window', 1),
     ('026', '    case id\n    #雪花六出', '    i1, times1 = WebSkill::COMBOS[id] if WebSkill::COMBOS[id]\n    case id\n    #雪花六出', 1),
 ]
 

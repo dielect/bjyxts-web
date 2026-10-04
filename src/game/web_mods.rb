@@ -48,9 +48,18 @@ module WebMod
   @skills  = {}                                  # 新绝招编号 => 定义
   @items   = {}                                  # 新物品编号 => 定义
   @variable_names = {}                           # 变量编号 => 名字（新武功的名字就是它的变量名）
+  @common_events = {}                            # 新公共事件编号 => 定义
 
   class << self
-    attr_reader :maps, :edits, :enemies, :weapons, :skills, :items, :variable_names
+    attr_reader :maps, :edits, :enemies, :weapons, :skills, :items, :variable_names, :common_events
+
+    # 新公共事件（编号接着原版连续，从 26 起）。物品的 common_event_id 指向它时，使用物品就执行它。
+    #   WebMod.common_event 26, '使用-无相残卷' do |c| ... end
+    def common_event(id, name, &block)
+      raise ArgumentError, "WebMod.common_event #{id}：新编号要从 26 开始" if id < 26
+      raise ArgumentError, "WebMod.common_event #{id}：重复定义" if @common_events[id]
+      @common_events[id] = { name: name, block: block }
+    end
 
     # 给变量起名。新武功（武功编号就是变量编号）在技能窗口、练功、师傅列表里显示的就是这个名字
     def variable_name(id, name)
@@ -181,6 +190,18 @@ module WebMod
         append_records(obj, @skills, 'Skills')
       elsif fn.to_s =~ /Items\.rxdata\z/i
         append_records(obj, @items, 'Items')
+      elsif fn.to_s =~ /CommonEvents\.rxdata\z/i
+        @common_events.keys.sort.each do |id|
+          d = @common_events[id]
+          ce = RPG::CommonEvent.new
+          ce.id = id
+          ce.name = d[:name]
+          c = Commands.new
+          d[:block].call(c)
+          ce.list = c.finish
+          obj[id] = ce
+        end
+        raise ArgumentError, 'WebMod.common_event：编号要连续，现在中间有空位' if (1...obj.size).any? { |i| obj[i].nil? }
       elsif fn.to_s =~ /System\.rxdata\z/i
         @variable_names.each do |id, name|
           raise ArgumentError, "WebMod.variable_name #{id}：原版已有名字“#{obj.variables[id]}”" unless obj.variables[id].to_s.empty?
