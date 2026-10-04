@@ -233,13 +233,63 @@ module WebMod
   # 地图构建器：WebMod.map / WebMod.edit 的块参数
   #--------------------------------------------------------------------------
   class Builder
-    attr_reader :map, :map_id, :tile_edits
+    attr_reader :map, :map_id, :tile_edits, :touched_events
 
     def initialize(map, map_id, first_event_id)
       @map = map
       @map_id = map_id
       @next_id = [first_event_id, (map.events.keys.max || 0) + 1].max
       @tile_edits = []
+      @touched_events = []
+    end
+
+    # 给原版 NPC 换上新的交谈内容。who 是事件编号或 NPC 名字（地图上唯一）。
+    #   默认只替换“一般交谈”（公共事件 3，那几句“今天天气真是，哈哈”）这一条，NPC 原有的任务判断全部保留；
+    #   override: true 用于本来就有自己台词的 NPC：替换交谈分支的内容，但保留外层的平一指任务判断。
+    #     注意 override 会去掉这个 NPC 交谈分支里原有的其他剧情逻辑，只用于台词固定、没有任务的 NPC。
+    #   每一页里有“交谈”分支的都会替换（NPC 有多页时各页一致）。
+    def talk(who, override: false, &block)
+      raise ArgumentError, 'talk 需要块' unless block
+      e = find_event(who)
+      done = 0
+      e.pages.each do |pg|
+        list = pg.list
+        i = list.index { |c| c.code == 402 && c.parameters[1] == '交谈' } or next
+        base = list[i].indent
+        j = i + 1
+        j += 1 while j < list.size && list[j].indent > base
+        generic = (i + 1...j).select { |k| list[k].code == 117 && list[k].parameters[0] == 3 }
+        if !override
+          raise ArgumentError, "地图 #{@map_id} 的 #{e.name}：交谈不是“一般交谈”，它有自己的台词或任务；确实要替换请加 override: true" unless generic.size == 1
+          k = generic[0]
+          list[k, 1] = Commands.new(list[k].indent).tap { |c| block.call(c) }.fragment
+        else
+          first = list[i + 1]
+          if first && first.code == 111 && first.parameters[0] == 1 && first.parameters[1] == 2
+            # 外层是平一指任务判断：替换它 else 部分的内容
+            els = (i + 1...j).find { |k| list[k].code == 411 && list[k].indent == base + 1 }
+            raise ArgumentError, "地图 #{@map_id} 的 #{e.name}：交谈分支结构不认识" unless els
+            stop = els + 1
+            stop += 1 while list[stop].indent > base + 1
+            # list[stop - 1] 是 else 段末尾的结束标记（code 0），保留
+            list[els + 1...stop - 1] = Commands.new(base + 2).tap { |c| block.call(c) }.fragment
+          else
+            list[i + 1...j - 1] = Commands.new(base + 1).tap { |c| block.call(c) }.fragment
+          end
+        end
+        done += 1
+      end
+      raise ArgumentError, "地图 #{@map_id} 的 #{e.name}：没有“交谈”选项" if done == 0
+      @touched_events << e.id
+      e
+    end
+
+    def find_event(who)
+      return @map.events[who] || raise(ArgumentError, "地图 #{@map_id} 没有事件 #{who}") if who.is_a?(Integer)
+      found = @map.events.values.select { |e| e.name == who }
+      raise ArgumentError, "地图 #{@map_id} 上没有叫“#{who}”的事件" if found.empty?
+      raise ArgumentError, "地图 #{@map_id} 上有 #{found.size} 个“#{who}”，请改用事件编号" if found.size > 1
+      found[0]
     end
 
     # 改地形：layer 0 最下层，图块编号见 docs/图块总览.png
@@ -271,7 +321,8 @@ module WebMod
 
     # NPC：照原版模板生成（名牌 → 交谈 / 查看 [/ 战斗] → 取消），见 docs/地图扩展指南.md 3.1。
     #   tile：人物头像图块，824～887
-    #   talk：交谈内容，每个字符串是一页对话；需要条件分支时改用块：
+    #   talk：交谈内容，每个字符串是一页对话，一次交谈按顺序全部说完；
+    #         想每次随机说一句，或需要条件分支时，改用块（c.one_of / c.random / c.if_*）：
     #         m.npc(...) { |c| c.if_switch(102) { c.text '……' }.else { c.text '……' } }
     #   look：查看的描述。字符串，或 { age:, level:, attack:, items:, text: }。text 自动按 20 字一行拆开，最多 100 字
     #         age 是年龄的十位数（3 → “30多岁”），level / attack 是 $levels / $attacks 的下标
@@ -407,9 +458,9 @@ module WebMod
   # 事件指令构建器：自动处理缩进和分支结束标记
   #--------------------------------------------------------------------------
   class Commands
-    def initialize
+    def initialize(indent = 0)
       @list = []
-      @indent = 0
+      @base = @indent = indent
     end
 
     def cmd(code, *params)
@@ -502,6 +553,35 @@ module WebMod
       raise '事件指令的分支没有闭合' unless @indent == 0
       @list << RPG::EventCommand.new(0, 0, [])
       @list
+    end
+
+    # 插入到现有事件中间的一段指令（不加结尾标记）
+    def fragment
+      raise '事件指令的分支没有闭合' unless @indent == @base
+      @list
+    end
+
+    # 随机执行一个分支：块对每个下标调用一次。用变量 9 暂存随机数（原版“一般交谈”也这样用，读档时清零）
+    def random(n, &block)
+      script "$game_variables[9]=rand(#{n})"
+      n.times { |i| if_variable(9, i) { block.call(i) } }
+      self
+    end
+
+    # 随机说一句
+    def one_of(*texts)
+      texts = texts.flatten
+      return text(texts[0]) if texts.size == 1
+      random(texts.size) { |i| text texts[i] }
+    end
+
+    # 常用条件
+    def if_dead(enemy_id, &block)          # 这个 NPC 已被杀（$live 按敌人编号记录）
+      if_script("$live[#{enemy_id}]==false", &block)
+    end
+
+    def if_good(&block)                    # 道德值 ≥ 128（原版的正邪分界）
+      if_variable(160, 128, 1, &block)
     end
 
     # 条件分歧的 else 部分。必须紧跟在 if_* 之后调用。

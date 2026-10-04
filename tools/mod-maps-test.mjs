@@ -25,6 +25,19 @@ module ModCheck
 
   def map_exists?(id) = WebMod::ORIGINAL_MAPS.include?(id) || WebMod.maps.key?(id)
 
+  # 去掉“交谈”分支的内容（保留选项本身），用于比较用 talk 改过台词的 NPC 其余部分是否原样
+  def without_talk(event)
+    e = Marshal.load(Marshal.dump(event))
+    e.pages.each do |pg|
+      l = pg.list
+      i = l.index { |c| c.code == 402 && c.parameters[1] == '交谈' } or next
+      j = i + 1
+      j += 1 while j < l.size && l[j].indent > l[i].indent
+      l.slice!(i + 1...j)
+    end
+    e
+  end
+
   def passable?(map_id, x, y)
     $game_map.setup(map_id)                   # Game_Event 初始化时读全局 $game_map，不能另建实例
     $game_map.events.clear                    # 只看地形
@@ -47,15 +60,18 @@ module ModCheck
         errors << "地图 #{id} 没有声明修改，但载入结果与原版不同" unless dump(raw) == dump(cur)
         next
       end
+      b = WebMod::Builder.new(WebMod.raw_load(path(id)), id, WebMod::FIRST_EDIT_EVENT_ID)
+      WebMod.edits[id].each { |blk| blk.call(b) }
       raw.events.each do |eid, e|
-        errors << "地图 #{id} 的原版事件 #{eid} 被改动" unless cur.events[eid] && dump(cur.events[eid]) == dump(e)
+        if b.touched_events.include?(eid)
+          errors << "地图 #{id} 的原版事件 #{eid}（#{e.name}）除交谈内容外被改动" unless cur.events[eid] && dump(without_talk(cur.events[eid])) == dump(without_talk(e))
+        else
+          errors << "地图 #{id} 的原版事件 #{eid} 被改动" unless cur.events[eid] && dump(cur.events[eid]) == dump(e)
+        end
       end
       (cur.events.keys - raw.events.keys).each do |eid|
         errors << "地图 #{id} 新增事件编号 #{eid} 小于 #{WebMod::FIRST_EDIT_EVENT_ID}" if eid < WebMod::FIRST_EDIT_EVENT_ID
       end
-      declared = []
-      b = WebMod::Builder.new(WebMod.raw_load(path(id)), id, WebMod::FIRST_EDIT_EVENT_ID)
-      WebMod.edits[id].each { |blk| blk.call(b) }
       declared = b.tile_edits
       (0...raw.width).each do |x|
         (0...raw.height).each do |y|
@@ -166,6 +182,10 @@ end
 WebMod.edit 21 do |m|
   m.door 9, 3, to: [90, 9, 12], dir: 8
   m.tile 5, 5, 1, 0
+  m.talk('采花大盗') { |c| c.one_of('第一句。', '第二句。', '第三句。') }
+end
+WebMod.edit 15 do |m|
+  m.talk('小商贩', override: true) { |c| c.if_good { c.text '好人。' }.else { c.text '坏人。' } }
 end
 nil
 `);
@@ -210,6 +230,26 @@ const structure = rb(String.raw`
   row = get_npc_data(144)
   out << "数值表错误：#{row.inspect}" unless row[0] == 30 && row[25] == 20 && row[4] == 58 && row[26] == 50000 && row[12, 3] == [[40, 80], [58, 60], [47, 50]] && row[15] == [0, 0] && row[1] == get_npc_data(30)[1]
   out << '模板 30 的数值表被改动' unless get_npc_data(30)[0] == 21
+  # talk：只替换“一般交谈”那一条，任务判断原样保留
+  raw21 = WebMod.raw_load('/game/Data/Map021.rxdata').events[1].pages[0].list
+  cur21 = load_data('/game/Data/Map021.rxdata').events[1].pages[0].list
+  k = raw21.index { |c| c.code == 117 && c.parameters[0] == 3 }
+  ind = raw21[k].indent
+  got = cur21[k, 13].map { |c| "#{c.indent - ind}:#{c.code}" }.join(' ')
+  out << "talk 替换结构错误：#{got}" unless got == '0:355 0:111 1:101 1:0 0:412 0:111 1:101 1:0 0:412 0:111 1:101 1:0 0:412'
+  out << "talk 替换后其余指令不一致" unless Marshal.dump(cur21[k + 13..].map { |c| [c.code, c.indent, c.parameters] }) == Marshal.dump(raw21[k + 1..].map { |c| [c.code, c.indent, c.parameters] })
+  out << "talk 前面的指令不一致" unless Marshal.dump(cur21[0, k].map { |c| [c.code, c.indent, c.parameters] }) == Marshal.dump(raw21[0, k].map { |c| [c.code, c.indent, c.parameters] })
+  # override：保留平一指任务判断，只换 else 里的台词
+  l15 = load_data('/game/Data/Map015.rxdata').events[2].pages[0].list
+  i = l15.index { |c| c.code == 402 && c.parameters[1] == '交谈' }
+  seg = l15[i + 1, 12].map { |c| "#{c.indent - l15[i].indent}:#{c.code}" }.join(' ')
+  out << "override 结构错误：#{seg}" unless seg == '1:111 2:101 2:121 2:122 2:0 1:411 2:111 3:101 3:0 2:411 3:101 3:0'
+  out << 'override 丢了任务判断参数' unless l15[i + 1].parameters == [1, 2, 0, 15, 0]
+  begin
+    WebMod::Builder.new(WebMod.raw_load('/game/Data/Map015.rxdata'), 15, 1001).talk('小商贩') { |c| c.text 'x' }
+    out << '对有自己台词的 NPC 不加 override 没有报错'
+  rescue ArgumentError
+  end
   out << '流星飞掷免疫判断错误' unless [WebMod.finisher_immune?(144), WebMod.finisher_immune?(126), WebMod.finisher_immune?(30)] == [false, true, false]
   e21 = load_data('/game/Data/Map021.rxdata').events.keys.sort
   out << "北郊新增事件编号应为 1001：#{e21.inspect}" unless e21.last == 1001
