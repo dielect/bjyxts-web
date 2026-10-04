@@ -58,7 +58,8 @@ module WebMod
     #   stats：数值表字段，键见 NPC_FIELDS，例如 { 膂力: 30, 闪避: 20, 经验: 50000 }
     #   skills：{ 武功编号 => 等级 }，最多 12 门，给出时整体替换模板的武功
     #   elite：true 时像原版 126 号以后的强敌一样不会被流星飞掷击中
-    def enemy(id, name:, tile:, like:, maxhp: nil, maxsp: nil, gold: nil, stats: {}, skills: nil, elite: false)
+    #   battler：战斗图文件名（Graphics/Battlers），不写时用头像对应的 NPC_Tile 图
+    def enemy(id, name:, tile:, like:, maxhp: nil, maxsp: nil, gold: nil, stats: {}, skills: nil, elite: false, battler: nil)
       raise ArgumentError, "WebMod.enemy #{id}：新敌人编号要从 #{FIRST_ENEMY_ID} 开始" if id < FIRST_ENEMY_ID
       raise ArgumentError, "WebMod.enemy #{id}：重复定义" if @enemies[id]
       raise ArgumentError, "WebMod.enemy #{id}：模板 #{like} 不能用（随机、舞林大会或数据不全）" if !like.between?(1, FIRST_ENEMY_ID - 1) || BAD_TEMPLATES.include?(like)
@@ -68,7 +69,7 @@ module WebMod
       raise ArgumentError, "WebMod.enemy #{id}：未知的数值字段 #{bad.join('、')}，可用：#{NPC_FIELDS.keys.join('、')}" unless bad.empty?
       raise ArgumentError, "WebMod.enemy #{id}：武功最多 12 门" if skills && skills.size > 12
       @enemies[id] = { name: name, tile: tile, like: like, maxhp: maxhp, maxsp: maxsp, gold: gold,
-                       stats: stats, skills: skills, elite: elite }
+                       stats: stats, skills: skills, elite: elite, battler: battler }
     end
 
     # 新武器 / 新绝招：复制一件原版条目后改字段，读取 Weapons.rxdata / Skills.rxdata 时追加。
@@ -193,7 +194,7 @@ module WebMod
         e = Marshal.load(Marshal.dump(list[d[:like]]))
         e.id = id
         e.name = d[:name]
-        e.battler_name = format('NPC_Tile_%02d', d[:tile] - 823)
+        e.battler_name = d[:battler] || format('NPC_Tile_%02d', d[:tile] - 823)
         e.maxhp = d[:maxhp] if d[:maxhp]
         e.maxsp = d[:maxsp] if d[:maxsp]
         e.gold = d[:gold] if d[:gold]
@@ -335,6 +336,8 @@ module WebMod
     #         杀死后：自开关 A 打开（事件换成第 2 页的尸体），$live[编号] 记为 false。
     #         name、tile 不写时取敌人定义里的。
     #   shop：卖的东西，[[:weapon, 31], [:item, 2], [:armor, 4]]，加一个“交易”选项（与原版小商贩相同）
+    #   sprite：自制外观（Graphics/Characters 里的行走图，用 tools/make_npc_sprite.py 从 32×32 素材生成），
+    #         代替图块集里的头像。tile 仍要填一个头像编号：不写 battler 时战斗图按它取
     LOOK_LINE = 20
     NO_LINE_START = '，。、；：！？”’）》」』…'
 
@@ -350,7 +353,7 @@ module WebMod
       lines
     end
 
-    def npc(x, y, name: nil, tile: nil, talk: [], look: nil, fight: nil, shop: nil, &block)
+    def npc(x, y, name: nil, tile: nil, talk: [], look: nil, fight: nil, shop: nil, sprite: nil, &block)
       fight = { enemy: fight } if fight.is_a?(Integer)
       if fight
         d = WebMod.enemies[fight[:enemy]]
@@ -382,6 +385,14 @@ module WebMod
           end
         end
         c.script '@s.dispose'
+      end
+      if sprite
+        g = e.pages[0].graphic
+        g.tile_id = 0
+        g.character_name = sprite
+        g.direction = 2
+        g.pattern = 0
+        e.pages[0].direction_fix = true            # 各帧相同，转向也没有意义
       end
       add_corpse_page(e, fight[:corpse] || 508) if fight
       e

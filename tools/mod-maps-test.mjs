@@ -89,6 +89,12 @@ module ModCheck
     touched = WebMod.edits.keys | WebMod.maps.keys
     touched.each do |id|
       map = load_data(path(id))
+      map.events.each_value do |e|
+        e.pages.each do |pg|
+          n = pg.graphic.character_name.to_s
+          errors << "地图 #{id} 事件 #{e.id}（#{e.name}）的行走图 #{n} 不存在" unless n.empty? || File.exist?("/game/Graphics/Characters/#{n}.png")
+        end
+      end
       cells = map.events.values.group_by { |e| [e.x, e.y] }
       cells.each { |xy, es| errors << "地图 #{id} 的 (#{xy.join(',')}) 有 #{es.size} 个事件" if es.size > 1 }
       doors(map).each do |e, (to, x, y)|

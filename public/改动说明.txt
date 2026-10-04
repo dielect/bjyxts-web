@@ -6,6 +6,16 @@
 新增类格式：类名/类的作用；方法：“方法名：用途”；属性：“属性：用途”
 行数指原工程（PC V1.21 导出脚本，见 game-src/scripts）中的行号。
 
+2026-10-05 老乞丐、棍棒摊主换上自制外观
+------------------------------------
+game-src/Graphics/Characters/Npc_OldBeggar.png、Npc_StaffVendor.png/新增/由 assets/npcs/32x32 的素材生成的行走图（同一帧铺成 4×4）。
+game-src/Graphics/Battlers/Npc_OldBeggar.png、Npc_StaffVendor.png/新增/对应的 32×32 战斗图。
+tools/make_npc_sprite.py/新增/把 32×32 NPC 素材转成行走图和战斗图。
+src/game/web_mods.rb/Builder#npc、WebMod.enemy/新增 sprite（行走图外观）与 battler（战斗图）参数。
+src/game/mods/010_打狗棒法.rb/老乞丐、棍棒摊主/改用自制外观，老乞丐战斗图同步更换。
+tools/mod-maps-test.mjs/新增检查/事件用到的行走图文件都存在。
+原版图片均未改动。
+
 2026-10-04 封面与网页版版本号
 --------------------------
 static/index.html/加载页/重新设计封面：与游戏画面同款的绿底墨线边框，标题下加一排原版人物头像（直接取自图块集，未新增图片）；版本号由“PC 版 V1.21”改为网页版版本号；操作说明与“导出诊断日志”移到底部。设置面板底部显示网页版版本号。

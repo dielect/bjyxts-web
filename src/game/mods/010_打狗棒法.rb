@@ -72,7 +72,7 @@ WebMod.item 23, like: 19, name: '泛黄的旧纸',
             description: '一张揉皱的旧纸，画着一根竹杖，旁边歪歪扭扭写着“五指山东崖”'
 
 WebMod.enemy 144, name: '老乞丐', tile: 835, like: 31,             # 以独行大侠为模板
-             maxhp: 600, maxsp: 1200, gold: 5, elite: true,
+             maxhp: 600, maxsp: 1200, gold: 5, elite: true, battler: 'Npc_OldBeggar',
              stats: { 膂力: 26, 敏捷: 28, 悟性: 30, 根骨: 28,
                       拳脚: 0, 兵刃: 84, 轻功: 0, 内功: 0, 招架: 84,
                       武器: 31, 装备1: 0, 装备2: 0, 经验: 400000 },
@@ -84,7 +84,8 @@ WebMod.enemy 144, name: '老乞丐', tile: 835, like: 31,             # 以独�
 DAGOU_FOOD_IDS = '(1..7)'                            # 烤鸡腿、包子、酥油茶、翡翠豆腐、猪肉、糖葫芦、白玉豆腐
 
 WebMod.edit 15 do |m|
-  m.npc 13, 13, fight: { enemy: 144, loot: [[:item, 23]], morality: [-10, -5], switch: 105 },
+  # 外观：assets/npcs/32x32/old-beggar.png，用 tools/make_npc_sprite.py 生成 Npc_OldBeggar
+  m.npc 13, 13, sprite: 'Npc_OldBeggar', fight: { enemy: 144, loot: [[:item, 23]], morality: [-10, -5], switch: 105 },
         look: { age: 6, level: 47, attack: 1, items: '破衣烂衫、竹棒',
                 text: '一个衣衫褴褛的老叫化，倚着墙根晒太阳。手里那根竹棒被磨得油光发亮，像是用了几十年。他偶尔抬眼看人，目光却清亮得不像个乞丐。' } do |c|
     c.if_switch(104) do
@@ -143,7 +144,7 @@ WebMod.edit 15 do |m|
   end
 
   # 每次交谈随机说一句（talk: [...] 是一次对话里连着说的几页，这里不用）
-  m.npc 20, 18, name: '棍棒摊主', tile: 872,
+  m.npc 20, 18, name: '棍棒摊主', tile: 872, sprite: 'Npc_StaffVendor',
         look: { age: 4, level: 8, attack: 3, items: '布衣', text: '一个膀大腰圆的汉子，摊子上横七竖八堆着各色棍棒。' },
         shop: [[:weapon, 31], [:weapon, 32]] do |c|
     c.random(2) do |i|
