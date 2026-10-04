@@ -6,6 +6,10 @@
 新增类格式：类名/类的作用；方法：“方法名：用途”；属性：“属性：用途”
 行数指原工程（PC V1.21 导出脚本，见 game-src/scripts）中的行号。
 
+2026-10-05 老乞丐、棍棒摊主换用重绘素材
+------------------------------------
+game-src/Graphics/Characters、Battlers 的 Npc_OldBeggar.png、Npc_StaffVendor.png/重新生成/改由 assets/npcs/32x32/old-beggar-v3-hero.png、staff-vendor-v2.png 生成，文件名不变。
+
 2026-10-05 修复地图名不显示；石桌挪到显眼处
 ----------------------------------------
 src/rgss.js/RGRuntime#_compose/精灵的创建序号改读记录第 27 项（原先误读第 26 项色调灰度，所有精灵序号都成了 0，同一 z 时总画在视口下面）。现在与 RGSS 一致：同一 z 按创建先后叠放。主菜单、查看、战斗等画面逐像素对比无变化，只有地图名恢复显示。
