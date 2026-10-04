@@ -47,9 +47,15 @@ module WebMod
   @weapons = {}                                  # 新武器编号 => 定义
   @skills  = {}                                  # 新绝招编号 => 定义
   @items   = {}                                  # 新物品编号 => 定义
+  @variable_names = {}                           # 变量编号 => 名字（新武功的名字就是它的变量名）
 
   class << self
-    attr_reader :maps, :edits, :enemies, :weapons, :skills, :items
+    attr_reader :maps, :edits, :enemies, :weapons, :skills, :items, :variable_names
+
+    # 给变量起名。新武功（武功编号就是变量编号）在技能窗口、练功、师傅列表里显示的就是这个名字
+    def variable_name(id, name)
+      @variable_names[id] = name
+    end
 
     # 定义一个能战斗的 NPC 的数据（敌人、敌群、数值表），在地图里用 npc(..., fight: 编号) 摆放。
     #   like：以哪个原版 NPC 为模板（敌人编号），复制它的全部数据后再改
@@ -175,6 +181,11 @@ module WebMod
         append_records(obj, @skills, 'Skills')
       elsif fn.to_s =~ /Items\.rxdata\z/i
         append_records(obj, @items, 'Items')
+      elsif fn.to_s =~ /System\.rxdata\z/i
+        @variable_names.each do |id, name|
+          raise ArgumentError, "WebMod.variable_name #{id}：原版已有名字“#{obj.variables[id]}”" unless obj.variables[id].to_s.empty?
+          obj.variables[id] = name
+        end
       elsif (id = map_id_of(fn)) && @edits.key?(id)
         b = Builder.new(obj, id, FIRST_EDIT_EVENT_ID)
         @edits[id].each { |blk| blk.call(b) }

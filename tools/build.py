@@ -76,7 +76,12 @@ PATCHES = [
     ('011', 'return skills_words_list[id]', 'return skills_words_list[id] || WebSkill.skill_words_for(id,user,objector,weapon_name)', 1),
     ('025', 'when 4,5,24,22,14,15,8,26,27\n', 'when 4,5,24,22,14,15,8,26,27,*WebSkill::COMBOS.keys\n', 1),
     ('025', '      attack_times(user,self,skill.id,window)\n    #落英缤纷', '      __hp0=self.hp\n      attack_times(user,self,skill.id,window)\n      WebSkill.after_combo(skill.id,user,self,window,__hp0)\n    #落英缤纷', 1),
-    ('103', 'for index in skill_levels[id]', 'for index in (skill_levels[id] || WebSkill::REQUIREMENTS.fetch(id))', 1),
+    ('103', 'for index in skill_levels[id]', 'for index in WebSkill.requirements_for(id, skill_levels[id])', 1),
+    # 绝招内力消耗改为经 WebSkill.sp_cost / consume_sp（默认与原版相同；030 小无相功的化用会改变）
+    ('025', 'if $data_skills[skill_id].sp_cost > self.sp', 'if WebSkill.sp_cost(self, skill_id) > self.sp', 1),
+    ('102', 'if @active_battler.sp<@skill.sp_cost', 'if @active_battler.sp<WebSkill.sp_cost(@active_battler, @skill.id)', 1),
+    ('103', '@active_battler.sp -= @skill.sp_cost', '@active_battler.sp -= WebSkill.consume_sp(@active_battler, @skill.id)', 1),
+    ('055', 'skill.sp_cost.to_s', 'WebSkill.sp_cost(@actor, skill.id).to_s', 1),
     ('026', '    case id\n    #雪花六出', '    i1, times1 = WebSkill::COMBOS[id] if WebSkill::COMBOS[id]\n    case id\n    #雪花六出', 1),
 ]
 

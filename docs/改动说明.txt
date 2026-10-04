@@ -6,6 +6,17 @@
 新增类格式：类名/类的作用；方法：“方法名：用途”；属性：“属性：用途”
 行数指原工程（PC V1.21 导出脚本，见 game-src/scripts）中的行号。
 
+2026-10-05 逍遥派武功：小无相功
+----------------------------
+src/game/mods/030_小无相功.rb/新增/内功 78 小无相功（WebXwx 模块）：观招（对手使出的绝招记入变量 241～252）、化用（不满足原版条件时按模仿度使用）、现学现用（本场看过的绝招免费回敬）、记忆上限与选择、无相反照、万法归宗。挂接 study_skill、Game_Battler#skill_effect、Scene_Battle#start_phase1、make_skill_action_result（均以 alias 包装，未启用小无相功时行为不变）。
+src/game/web_skills.rb/WebSkill/新增 add_skill、sp_cost、consume_sp、requirements_for、requirements_of 与 ORIGINAL_REQUIREMENTS（原版 103 skill_check 条件表原文）。
+src/game/web_mods.rb/WebMod/新增 variable_name：读取 System.rxdata 时给变量（新武功）起名。
+025 - Game_Battler 3/Game_Battler/skill_can_use?/15/内力判断改为 WebSkill.sp_cost（默认即原值）。
+055 - Window_BattleSkill/Window_BattleSkill/draw_item/64/显示的内力消耗改为 WebSkill.sp_cost（默认即原值）。
+102 - Scene_Battle 3/Scene_Battle/update_phase3_skill_select/259/内力不足提示的判断改为 WebSkill.sp_cost。
+103 - Scene_Battle 4/Scene_Battle/make_skill_action_result、skill_check/372、519/扣内力改为 WebSkill.consume_sp；使用条件改为 WebSkill.requirements_for（默认与原版相同）。
+tools/xwx-test.mjs/新增/小无相功规则回归测试。
+
 2026-10-05 移除前世奇遇；数值修改器改为沙盒模式
 ------------------------------------------
 src/game/web_extras.rb/WebCheat/移除前世奇遇（event_list、accept、check_qiyu 及 Scene_Map#update 挂接）；修改器改为沙盒模式：开关 1998 标记沙盒存档，未开启时拒绝修改数值；新增 sandbox 指令与 push_state（通知网页显示“沙盒”标记）。
@@ -157,7 +168,7 @@ static/index.html、tools/build.py/日志入口与构建/加载页、设置页�
 
 115 - --------主体区--------/（全局）/（无）/全部/不载入。原版开一个线程，通过 user32 遍历系统窗口标题，发现“金山游侠”或“Cheat Engine”就结束游戏。浏览器无法访问系统窗口，这项防修改器检测在网页版不生效。
 
-其余 103 个脚本原样载入，没有改动（004、006、029、057 的部分方法由 web:武功注册表 覆盖，013 的 get_npc_data 由 web:地图扩展 包装，见文首 2026-10-04 各条）。
+其余 101 个脚本原样载入，没有改动（004、006、029、057 的部分方法由 web:武功注册表 覆盖，013 的 get_npc_data 由 web:地图扩展 包装，见文首 2026-10-04 各条）。
 
 二、新增的类和模块（网页运行环境）
 --------------------------------
