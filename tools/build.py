@@ -7,7 +7,7 @@ Inputs (all inside the repo):
   game-src/Audio                original audio
 Output: public/
 """
-import glob, json, os, re, shutil, subprocess, sys
+import datetime, glob, json, os, re, shutil, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, 'game-src')
@@ -252,18 +252,34 @@ def main():
     def _ver(path):
         import hashlib
         return hashlib.sha1(open(path, 'rb').read()).hexdigest()[:10]
+    # 网页版版本号：VERSION 文件里手动维护的主版本 + 每次构建自动附上的构建时间
+    version = open(os.path.join(ROOT, 'VERSION'), encoding='utf-8').read().strip()
+    now = datetime.datetime.now()
+    version_text = f'v{version} · {now:%Y-%m-%d %H:%M}'
+    build_id = f'{version}+{now:%Y%m%d%H%M}'
     manifest = {'wasm': 'ruby.wasm?v=' + _ver(os.path.join(OUT, 'ruby.wasm')),
                 'scripts': 'game/scripts.json?v=' + _ver(os.path.join(GAME, 'scripts.json')),
-                'images': images, 'audio': audio, 'data': data, 'version': '1.21-web2'}
+                'images': images, 'audio': audio, 'data': data, 'version': build_id}
     json.dump(manifest, open(os.path.join(GAME, 'manifest.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=0)
-    for fn in os.listdir(os.path.join(ROOT, 'static')):
-        shutil.copy2(os.path.join(ROOT, 'static', fn), os.path.join(OUT, fn))
     # 协议第 4 条：发布时附带改动说明
     shutil.copy2(os.path.join(ROOT, 'docs', '改动说明.txt'), os.path.join(OUT, '改动说明.txt'))
     subprocess.run(['npx', 'esbuild', 'src/main.js', '--bundle', '--format=iife', '--target=es2020',
                     '--loader:.rb=text', '--outfile=public/app.js', '--minify'], cwd=ROOT, check=True)
     subprocess.run(['npx', 'esbuild', 'src/diagnostics.js', '--bundle', '--format=iife', '--target=es2020',
                     '--outfile=public/diagnostics.js', '--minify'], cwd=ROOT, check=True)
+    # 静态文件在打包之后复制：index.html 里的版本号、构建号和脚本地址的内容哈希在这里填入
+    for fn in os.listdir(os.path.join(ROOT, 'static')):
+        shutil.copy2(os.path.join(ROOT, 'static', fn), os.path.join(OUT, fn))
+    html_path = os.path.join(OUT, 'index.html')
+    html = open(html_path, encoding='utf-8').read()
+    for key, value in {'__WEB_VERSION__': version_text, '__BUILD_ID__': build_id,
+                       '__HASH_APP__': _ver(os.path.join(OUT, 'app.js')),
+                       '__HASH_DIAGNOSTICS__': _ver(os.path.join(OUT, 'diagnostics.js'))}.items():
+        if key not in html:
+            raise SystemExit(f'index.html 里缺少占位符 {key}')
+        html = html.replace(key, value)
+    open(html_path, 'w', encoding='utf-8').write(html)
+    print(f'网页版 {version_text}')
     print(f'scripts={len(scripts)} images={len(images)} data={len(data)} audio={len(audio)}')
 
 

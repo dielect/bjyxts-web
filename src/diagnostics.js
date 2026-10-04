@@ -1,6 +1,7 @@
 // Loaded before app.js, so startup errors can be exported without the game VM.
 const PREFIX = 'bjyxts121:#diagnostics:v1:';
-const BUILD = '2026-10-04-omgpad1';
+// 构建号由 tools/build.py 写进 index.html 的 <html data-build>（网页版版本号 + 构建时间）
+const BUILD = document.documentElement.dataset.build || 'dev';
 const MAX_SESSIONS = 4;
 const MAX_EVENTS = 120;
 const MAX_CHARS = 48000;

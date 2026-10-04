@@ -6,6 +6,13 @@
 新增类格式：类名/类的作用；方法：“方法名：用途”；属性：“属性：用途”
 行数指原工程（PC V1.21 导出脚本，见 game-src/scripts）中的行号。
 
+2026-10-04 封面与网页版版本号
+--------------------------
+static/index.html/加载页/重新设计封面：与游戏画面同款的绿底墨线边框，标题下加一排原版人物头像（直接取自图块集，未新增图片）；版本号由“PC 版 V1.21”改为网页版版本号；操作说明与“导出诊断日志”移到底部。设置面板底部显示网页版版本号。
+VERSION/新增/网页版主版本号（1.0.0），手动维护。
+tools/build.py/main/构建时把“版本号 · 构建时间”写入封面和设置面板，把构建号写入 <html data-build> 和 manifest.json；app.js、diagnostics.js 的地址参数改为按内容哈希自动生成。
+src/diagnostics.js/BUILD/诊断日志的构建号改为读取页面的 data-build，不再手动维护。
+
 2026-10-04 NPC 对话
 ----------------
 src/game/web_mods.rb/Builder#talk、find_event；Commands#random、one_of、if_dead、if_good、fragment/新增：替换原版 NPC 交谈分支中调用“一般交谈”（公共事件 3）的那一条指令，NPC 原有任务判断不变；override 时替换交谈内容但保留平一指任务判断。

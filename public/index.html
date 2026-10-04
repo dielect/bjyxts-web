@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-build="1.0.0+202610042342">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -127,29 +127,43 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 18px; background: var
 #dlg-text { white-space: pre-wrap; font-size: 18px; line-height: 1.6; margin-bottom: 14px; }
 #dlg-input { width: 100%; font-size: 20px; padding: 8px 10px; margin-bottom: 12px; }
 #dialog { z-index: 30; }
-/* 加载页：保留原版背景图，压一层墨绿 */
+/* 封面：与游戏画面同款的绿底墨线，一排原版人物头像（直接取自图块集） */
 #loading:not(.show) { display: none; }
-#loading { display: flex; flex-direction: column; background: #12160b url("game/Graphics/Pictures/BG.png") center/cover no-repeat; z-index: 40; }
-#loading::before { content: ""; position: absolute; inset: 0; background: rgba(18,22,11,.62); }
+#loading { display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 40;
+  background: var(--g); color: var(--g-ink); padding: 18px 18px 64px; }
+#loading::before { content: ""; position: absolute; pointer-events: none;
+  inset: calc(env(safe-area-inset-top, 0px) + 10px) calc(env(safe-area-inset-right, 0px) + 10px)
+         calc(env(safe-area-inset-bottom, 0px) + 10px) calc(env(safe-area-inset-left, 0px) + 10px);
+  border: 3px solid var(--g-ink); box-shadow: inset 0 0 0 3px var(--g-hi), inset 0 0 0 6px var(--g-ink); }
 #loading > * { position: relative; }
-#loading h1 { font-size: clamp(26px, 6vh, 44px); letter-spacing: 8px; margin: 0 0 8px; padding: 6px 22px 4px;
-  color: var(--g-ink); background: var(--g); border: 3px solid var(--g-ink);
-  box-shadow: inset 0 0 0 3px var(--g-hi), 6px 6px 0 var(--g-shadow); }
-#loading .sub { color: var(--g-pale); margin: 8px 0 26px; font-size: 14px; letter-spacing: 3px; text-shadow: 2px 2px 0 var(--g-shadow); }
-#load-bar { width: min(70vw, 380px); height: 16px; background: var(--g-ink); border: 3px solid var(--g-ink);
-  box-shadow: 4px 4px 0 var(--g-shadow); overflow: hidden; }
+#loading h1 { font-size: clamp(28px, 8.5vh, 54px); letter-spacing: .32em; margin: 0; padding: .12em .25em .08em .57em;
+  color: var(--g-ink); background: var(--g-hi); border: 3px solid var(--g-ink); box-shadow: 6px 6px 0 var(--g-dk); }
+#loading .tagline { margin: clamp(6px, 1.8vh, 12px) 0 0; font-size: clamp(12px, 2.8vh, 17px); letter-spacing: .4em; color: var(--g-dk); }
+.cover-faces { display: flex; gap: clamp(4px, 1.6vh, 12px); margin: clamp(10px, 4.5vh, 30px) 0 clamp(8px, 3vh, 22px); }
+.cover-faces i { width: clamp(34px, 11vh, 66px); aspect-ratio: 1; border: 2px solid var(--g-ink); background-color: var(--g-hi);
+  background-image: url("game/Graphics/Tilesets/051-Gmud_Tile.png"); background-repeat: no-repeat; background-size: 800% auto;
+  background-position: calc(var(--c) * 100% / 7) calc(var(--r) * 100% / 63); image-rendering: pixelated; }
+#load-bar { width: min(60vw, 360px); height: 14px; background: var(--g-pale); border: 3px solid var(--g-ink); overflow: hidden; }
 #load-bar-inner { height: 100%; width: 0; transition: width .2s;
-  background: repeating-linear-gradient(90deg, var(--g) 0 10px, var(--g-hi) 10px 12px); }
-#load-text { margin-top: 12px; font-size: 14px; color: var(--g-pale); min-height: 20px; text-shadow: 2px 2px 0 var(--g-shadow); }
-#start-btn { display: none; margin-top: 18px; font-family: inherit; font-size: 22px; letter-spacing: 6px; padding: 10px 38px;
-  background: var(--g); color: var(--g-ink); border: 3px solid var(--g-ink); border-radius: 0; cursor: pointer;
-  box-shadow: inset 0 0 0 3px var(--g-hi), 0 5px 0 var(--g-shadow); }
-#start-btn:active { transform: translateY(4px); box-shadow: inset 0 0 0 3px var(--g-hi), 0 1px 0 var(--g-shadow); }
+  background: repeating-linear-gradient(90deg, var(--g-ink) 0 8px, var(--g-dk) 8px 10px); }
+#load-text { margin-top: 10px; font-size: 14px; color: var(--g-ink); min-height: 20px; letter-spacing: 2px; }
+#start-btn { display: none; font-family: inherit; font-size: clamp(18px, 5vh, 24px); letter-spacing: .4em; padding: .4em 1.3em .4em 1.7em;
+  background: var(--g-hi); color: var(--g-ink); border: 3px solid var(--g-ink); border-radius: 0; cursor: pointer;
+  box-shadow: 0 5px 0 var(--g-ink); }
+#start-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--g-ink); }
 #loading.ready #start-btn { display: block; animation: blink 1.2s steps(1) infinite; }
-#loading.ready #load-bar { display: none; }
+#loading.ready #load-bar, #loading.ready #load-text { display: none; }
+.cover-foot { position: absolute !important; left: calc(env(safe-area-inset-left, 0px) + 26px); right: calc(env(safe-area-inset-right, 0px) + 26px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
+  font-size: 12px; color: var(--g-dk); line-height: 1.6; }
+.cover-foot .keys { text-align: center; flex: 1; }
+.cover-foot .ver { white-space: nowrap; color: var(--g-ink); }
+#loading .cover-foot [data-export-diagnostics] { margin: 0; font-size: 12px; padding: 2px 8px; background: transparent; border-width: 2px; white-space: nowrap; }
+#loading [data-diagnostic-status] { display: none; }
 [data-export-diagnostics] { font-family: inherit; font-size: 14px; padding: 6px 12px; margin-top: 10px;
   background: var(--g); color: var(--g-ink); border: 2px solid var(--g-ink); cursor: pointer; }
-@keyframes blink { 50% { background: var(--g-hi); } }
+@keyframes blink { 50% { background: var(--g); } }
+@media (max-height: 420px) { .cover-foot .keys { display: none; } }
 /* 竖屏提示 */
 #rotate { position: fixed; inset: 0; display: none; z-index: 50; background: #12160b; flex-direction: column;
   align-items: center; justify-content: center; text-align: center; font-size: 18px; color: var(--g-pale); }
@@ -186,13 +200,21 @@ body.portrait #rotate { display: flex; }
 
 <div id="loading" class="overlay show">
   <h1>白金英雄坛说</h1>
-  <div class="sub">PC 版 V1.21 · 网页移植</div>
+  <div class="tagline">文曲星经典 · 网页版</div>
+  <div class="cover-faces" aria-hidden="true">
+    <i title="顾炎武" style="--c:1;--r:62"></i><i title="独行大侠" style="--c:4;--r:58"></i><i title="何铁手" style="--c:0;--r:60"></i>
+    <i title="老乞丐" style="--c:3;--r:56"></i><i title="平一指" style="--c:7;--r:62"></i><i title="道德和尚" style="--c:6;--r:56"></i>
+    <i title="黑衣大盗" style="--c:6;--r:57"></i>
+  </div>
   <div id="load-bar"><div id="load-bar-inner"></div></div>
   <div id="load-text">正在加载…</div>
   <button id="start-btn">开始游戏</button>
-  <button data-export-diagnostics>导出诊断日志</button>
   <div class="hint" data-diagnostic-status></div>
-  <div class="hint">电脑：方向键移动，Enter / 空格 / C 确定，Esc / X 取消，Q / W 翻页<br>手机：请横屏，左侧方向键，右侧确定 / 取消；右上角 ⚙ 可导入导出存档</div>
+  <div class="cover-foot">
+    <span class="ver">网页版 v1.0.0 · 2026-10-04 23:42</span>
+    <span class="keys">电脑：方向键移动，Enter / 空格 确定，Esc / X 取消，Q / W 翻页　手机：请横屏，右上角 ⚙ 可导入导出存档</span>
+    <button data-export-diagnostics>导出诊断日志</button>
+  </div>
 </div>
 
 <div id="rotate"><div class="phone"></div>请将手机横过来<br><span style="font-size:13px;color:#999;margin-top:8px;display:block">本游戏需横屏运行</span><button data-export-diagnostics>导出诊断日志</button></div>
@@ -218,6 +240,7 @@ body.portrait #rotate { display: flex; }
   <div class="row cheat"><label for="cheat-gold">金钱</label><input id="cheat-gold" type="number" min="0" max="9999999" step="1" inputmode="numeric"></div>
   <div class="row"><button id="cheat-read">读取当前</button><button id="cheat-add">经验潜能各加一千万</button><button id="cheat-apply">应用修改</button></div>
   <div class="hint" id="cheat-msg" style="text-align:left;margin:2px 0 12px">修改立即生效。想保留请回到游戏，在菜单「功能」里存档。</div>
+  <div class="hint" style="text-align:left;margin:0 0 10px">网页版 v1.0.0 · 2026-10-04 23:42</div>
   <button id="set-close">返回游戏</button>
   <input id="import-file" type="file" accept=".sav,application/octet-stream" style="display:none">
 </div></div>
@@ -236,7 +259,7 @@ body.portrait #rotate { display: flex; }
 </div></div>
 
 <div id="toast"></div>
-<script src="diagnostics.js?v=20261004-ruby40"></script>
-<script src="app.js?v=20261004-ruby40"></script>
+<script src="diagnostics.js?v=f88877dbee"></script>
+<script src="app.js?v=a6048c392c"></script>
 </body>
 </html>
