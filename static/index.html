@@ -146,6 +146,8 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 18px; background: var
 #start-btn:active { transform: translateY(4px); box-shadow: inset 0 0 0 3px var(--g-hi), 0 1px 0 var(--g-shadow); }
 #loading.ready #start-btn { display: block; animation: blink 1.2s steps(1) infinite; }
 #loading.ready #load-bar { display: none; }
+[data-export-diagnostics] { font-family: inherit; font-size: 14px; padding: 6px 12px; margin-top: 10px;
+  background: var(--g); color: var(--g-ink); border: 2px solid var(--g-ink); cursor: pointer; }
 @keyframes blink { 50% { background: var(--g-hi); } }
 /* 竖屏提示 */
 #rotate { position: fixed; inset: 0; display: none; z-index: 50; background: #12160b; flex-direction: column;
@@ -187,10 +189,12 @@ body.portrait #rotate { display: flex; }
   <div id="load-bar"><div id="load-bar-inner"></div></div>
   <div id="load-text">正在加载…</div>
   <button id="start-btn">开始游戏</button>
+  <button data-export-diagnostics>导出诊断日志</button>
+  <div class="hint" data-diagnostic-status></div>
   <div class="hint">电脑：方向键移动，Enter / 空格 / C 确定，Esc / X 取消，Q / W 翻页<br>手机：请横屏，左侧方向键，右侧确定 / 取消；右上角 ⚙ 可导入导出存档</div>
 </div>
 
-<div id="rotate"><div class="phone"></div>请将手机横过来<br><span style="font-size:13px;color:#999;margin-top:8px;display:block">本游戏需横屏运行</span></div>
+<div id="rotate"><div class="phone"></div>请将手机横过来<br><span style="font-size:13px;color:#999;margin-top:8px;display:block">本游戏需横屏运行</span><button data-export-diagnostics>导出诊断日志</button></div>
 
 <div id="dialog" class="overlay"><div class="panel">
   <div id="dlg-text"></div>
@@ -205,6 +209,8 @@ body.portrait #rotate { display: flex; }
   <div class="row"><button id="set-full">全屏 / 退出全屏</button><button id="set-pad">显示 / 隐藏虚拟按键</button></div>
   <div class="row"><button id="set-export">导出存档</button><button id="set-import">导入存档</button><button id="set-reset">重新载入游戏</button></div>
   <div class="hint" style="text-align:left;margin:6px 0 10px">存档自动保存在本浏览器中（与 PC 版 Gmud.sav 格式相同，可互相导入）。清除浏览器数据会删除存档，建议定期导出备份。</div>
+  <div class="row"><button data-export-diagnostics>导出诊断日志</button></div>
+  <div class="hint" data-diagnostic-status></div>
   <h3 class="sub">数值修改</h3>
   <div class="row cheat"><label for="cheat-exp">经验</label><input id="cheat-exp" type="number" min="0" step="1" inputmode="numeric"></div>
   <div class="row cheat"><label for="cheat-pot">潜能</label><input id="cheat-pot" type="number" min="0" step="1" inputmode="numeric"></div>
@@ -219,15 +225,17 @@ body.portrait #rotate { display: flex; }
   <h2>已退出游戏</h2>
   <div style="margin-bottom:14px">进度已按游戏内的存档保存。</div>
   <button onclick="location.reload()">重新开始</button>
+  <button data-export-diagnostics>导出诊断日志</button>
 </div></div>
 
 <div id="error" class="overlay"><div class="panel">
   <h2>运行出错</h2>
   <div id="err-text"></div>
-  <div style="margin-top:12px"><button onclick="location.reload()">重新载入</button></div>
+  <div style="margin-top:12px"><button onclick="location.reload()">重新载入</button><button data-export-diagnostics>导出诊断日志</button></div>
 </div></div>
 
 <div id="toast"></div>
-<script src="app.js"></script>
+<script src="diagnostics.js?v=20261004-log1"></script>
+<script src="app.js?v=20261004-log1"></script>
 </body>
 </html>

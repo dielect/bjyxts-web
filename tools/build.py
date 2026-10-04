@@ -181,6 +181,8 @@ def main():
     shutil.copy2(os.path.join(ROOT, 'docs', '改动说明.txt'), os.path.join(OUT, '改动说明.txt'))
     subprocess.run(['npx', 'esbuild', 'src/main.js', '--bundle', '--format=iife', '--target=es2020',
                     '--loader:.rb=text', '--outfile=public/app.js', '--minify'], cwd=ROOT, check=True)
+    subprocess.run(['npx', 'esbuild', 'src/diagnostics.js', '--bundle', '--format=iife', '--target=es2020',
+                    '--outfile=public/diagnostics.js', '--minify'], cwd=ROOT, check=True)
     print(f'scripts={len(scripts)} images={len(images)} data={len(data)} audio={len(audio)}')
 
 

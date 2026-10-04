@@ -1,0 +1,50 @@
+网页崩溃诊断日志（2026-10-04-log1）
+
+使用方法
+1. 部署 public/ 的完整内容，包括新增 diagnostics.js，再刷新游戏页面。
+2. 正常游戏，发生崩溃后重新打开同一个网址、同一个浏览器。
+3. 在加载页、横竖屏提示页、设置页或“运行出错”页点“导出诊断日志”。
+4. iOS 支持文件分享时使用系统分享面板，可存到“文件”；其他情况下载 JSON。
+5. 将该 JSON 连同机型、iOS 版本、浏览器名称、崩溃前操作一起提供，用于排查。
+首次安装日志版本前的崩溃无法补录。清除网站数据/换浏览器无法取得旧记录。
+
+记录内容
+- 启动时间、诊断版本、浏览器 UA、屏幕尺寸和导航类型。
+- 加载阶段、JS error/unhandledrejection、Ruby stderr 和运行错误栈、资源加载失败。
+- 游戏场景、地图编号、主角坐标、Ruby 可绘制元素数及 GC/堆存活对象数。
+- 每 5 秒记录帧号、Canvas 像素字节估算、位图数量/累计分配数、图块数量、
+  WASM 线性内存字节数、音效活动数和音频状态。
+- JS heap 仅浏览器支持时记录；Safari 不支持时为 null。
+- 页面隐藏/恢复/pagehide、Canvas contextlost 和最近的游戏按键/按钮标识。
+- 不采集存档内容或文本框输入，不上传服务器；导出包含本机最多 4 次会话。
+
+边界
+- 每次会话最多 120 条事件、48000 个 JSON 字符，超限丢弃最旧事件；最后一次错误另行保留。
+- 最近 4 次会话各用独立 key，避免多个标签页互相覆盖；所有 key 均为
+  bjyxts121:#diagnostics:v1: 前缀，现有存档读取逻辑会跳过这些设置项。
+- 持久化通常每 5 秒一次；场景/错误等事件触发额外写入，写入频率限制为至多每秒一次，
+  pagehide 和手动导出会强制刷新。最后几秒仍可能在系统终止时丢失。
+- localStorage 不可用/配额不足时游戏不因记录器抛错；页面提示无法保存，仍能导出内存中的本轮日志。
+- 页面被 iOS/WebContent 直接终止时，JS 没有机会运行最终的错误处理器，无法保证得到崩溃栈。
+  unconfirmedInterruption 只代表“没有观察到结束”，也可能是用户关页、后台回收或另一标签页仍在运行。
+  MDN 关于移动端 pagehide 不可靠的说明：
+  https://developer.mozilla.org/en-US/docs/Web/API/Window/pagehide_event#usage_notes
+- Canvas 字节值是已登记画布的 RGBA 像素估算，不是进程 RSS/GPU 实际内存，也不包括已移除引用、
+  尚未被浏览器回收的资源；WASM 内存容量也不等于 Ruby 实际存活对象大小。
+- 帧长时间无进展会记 frame-gap，但等待起名/对话也可能发生，不能单凭此项判定卡死。
+
+实现和测试
+src/diagnostics.js 是独立入口，在 app.js 之前载入，主程序未加载成功时也能导出。
+src/ruby/rgss_core.rb 由 Ruby 循环主动推送摘要，JS 采样器不会定时回调/重入 Ruby VM。
+static/index.html 给脚本 URL 加诊断版本参数，更新 HTML 后会请求对应新 JS。
+tools/build.py 已加入独立日志 bundle 的构建；public/ 已同步。
+
+测试命令（需要 Playwright）
+  python -m http.server 8090 --bind 127.0.0.1 --directory public
+  node tools/diagnostics-test.cjs
+  node tools/ios-memory-test.cjs
+可用 PLAYWRIGHT_MODULE 指定已有 Playwright 安装，BROWSER_CHANNEL=msedge 使用系统 Edge。
+已验证：错误/Promise/Ruby 栈、资源采样、刷新保留、JSON 导出、日志容量、存档隔离、
+主 bundle 加载失败、独立标签页、禁用 localStorage 时内存导出、横竖屏触屏导出和模拟系统分享。
+原 400 帧复用、100 次 NPC 生命周期及游戏正常启动测试通过。
+测试环境为 Windows Edge/Chromium；系统分享使用模拟接口，尚未经 iPhone 真机验证。

@@ -39,6 +39,21 @@ module RGWeb
     def await_js(name, *args)
       JSRG.call(name, *args).await
     end
+    # Report from inside the Ruby loop; JS timers must not re-enter a running VM.
+    def diagnostic_tick
+      scene = defined?($scene) ? $scene : nil
+      map = defined?($game_map) && $game_map ? $game_map.map_id : 0
+      @diagnostic_frames = (@diagnostic_frames || 0) + 1
+      return if @diagnostic_scene_id == scene.object_id && @diagnostic_map == map && @diagnostic_frames % 40 != 0
+      @diagnostic_scene_id = scene.object_id
+      @diagnostic_map = map
+      player = defined?($game_player) ? $game_player : nil
+      call(:diagnosticState, scene ? scene.class.name : '', map,
+           player ? player.x : 0, player ? player.y : 0, @elements.size,
+           GC.stat(:count), GC.stat(:heap_live_slots))
+    rescue StandardError
+      nil # Logging must not interrupt gameplay.
+    end
     def num(v)
       v.to_i
     end
@@ -717,6 +732,7 @@ module Graphics
     end
     def update
       RGWeb.flush_dispose
+      RGWeb.diagnostic_tick
       r = RGWeb.await_js(:frame, RGWeb.display_list, @frame_rate)
       @frame_count += 1
       RGWeb.after_frame(r)
@@ -732,6 +748,7 @@ module Graphics
       if duration > 0
         duration.times do
           RGWeb.flush_dispose
+          RGWeb.diagnostic_tick
           r = RGWeb.await_js(:frame, RGWeb.display_list, @frame_rate)
           @frame_count += 1
           RGWeb.after_frame(r)

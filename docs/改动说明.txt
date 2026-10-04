@@ -18,6 +18,14 @@ tools/ios-memory-test.cjs/新增回归测试/检查 400 帧位图复用、地图
 一、修改的原有脚本
 ------------------
 
+2026-10-04 诊断日志补充：
+src/diagnostics.js/Diagnostics/新增记录器/全文件/本地有界会话日志、错误采集、资源采样、生命周期记录及 JSON 导出；独立于游戏 bundle 先行载入。
+src/ruby/rgss_core.rb/RGWeb/diagnostic_tick/新增方法/由 Ruby 主循环主动推送场景、地图和 GC 摘要，不从 JS 定时重入 VM。
+src/ruby/rgss_core.rb/Graphics/update、transition/更新方法/调用诊断摘要采集。
+src/main.js/启动流程及回调/加载阶段、onError、onExit/记录启动阶段和 Ruby 运行错误，绑定 WASM 内存采样。
+static/index.html、tools/build.py/日志入口与构建/加载页、设置页、错误页等提供导出；生成独立 public/diagnostics.js。
+日志只在本机保存，不修改存档格式、不自动上传；使用说明见 docs/diagnostics-guide.txt。
+
 000 - 开源协议/（全局）/（无）/1-59/协议原文原样保留，作为第一个脚本载入（纯注释）。
 000 - 开源协议/HangupEradication、FSL/（类、模块）/60-185/去掉。这段“Hangup 异常根除”调用 kernel32 挂起和恢复线程，浏览器里没有 Hangup 超时，也无法调用。
 000 - 开源协议/（全局）/游戏主过程外壳/186-205/去掉。原版在这里用 callcc 和 eval 依次执行 $RGSS_SCRIPTS 中的脚本，网页版改由 src/ruby/boot.rb 按相同顺序执行。F12 重置跳转（callcc）在网页版不可用，需要重新开始时刷新页面即可。

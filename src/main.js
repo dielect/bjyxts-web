@@ -8,11 +8,18 @@ import RB_BOOT from './ruby/boot.rb';
 
 const SAVE_PREFIX = 'bjyxts121:';
 const $ = (id) => document.getElementById(id);
+const diagnostics = window.GameDiagnostics;
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 
 // ---------------------------------------------------------------- loading UI
+let lastLoadingStage = '';
 function setProgress(text, frac) {
   $('load-text').textContent = text;
+  const stage = text.replace(/\d+%/g, '').trim();
+  if (stage !== lastLoadingStage) {
+    lastLoadingStage = stage;
+    diagnostics?.record('loading-stage', { stage }, true);
+  }
   if (frac != null) $('load-bar-inner').style.width = `${Math.round(frac * 100)}%`;
 }
 
@@ -397,14 +404,14 @@ async function main() {
   const fds = [
     new OpenFile(new File([])),
     ConsoleStdout.lineBuffered((l) => console.log('[stdout]', l)),
-    ConsoleStdout.lineBuffered((l) => console.warn('[stderr]', l)),
+    ConsoleStdout.lineBuffered((l) => { console.warn('[stderr]', l); diagnostics?.record('ruby-stderr', { message: String(l).slice(0, 3000) }); }),
     new PreopenDirectory('/game', root.contents),
   ];
   // PreopenDirectory wraps a fresh Directory around the map; keep our root pointing at it
   const preopen = fds[3];
   window.__gameRoot = preopen.dir;
   const wasi = new WASI(['ruby'], [], fds, { debug: false });
-  const { vm } = await RubyVM.instantiateModule({ module: mod, wasip1: wasi });
+  const { vm, instance } = await RubyVM.instantiateModule({ module: mod, wasip1: wasi });
   window.__vm = vm;
 
   rg = new RGRuntime({
@@ -416,12 +423,15 @@ async function main() {
     ui,
   });
   window.RG = rg;
+  diagnostics?.attach(rg, instance.exports.memory);
   window.RGScripts = scripts;
   rg.onExit = () => {
+    diagnostics?.phase('ended');
     rg.audio.pauseAll();
     $('ended').classList.add('show');
   };
   rg.onError = (msg) => {
+    diagnostics?.phase('error', msg);
     console.error(String(msg));
     rg.audio.pauseAll();
     $('err-text').textContent = String(msg);
@@ -437,11 +447,13 @@ async function main() {
   vm.eval(RB_KERNEL);
   vm.eval(RB_RPG);
   setProgress('准备就绪', 1);
+  diagnostics?.phase('ready');
 
   await new Promise((resolve) => {
     $('loading').classList.add('ready');
     const start = async () => {
       $('start-btn').removeEventListener('click', start);
+      diagnostics?.phase('running');
       rg.audio.unlock();
       rg.audio.preloadSE(manifest.audio.filter((a) => a.startsWith('Audio/SE/')).map((a) => a.replace(/\.[^.]+$/, '')));
       if (isTouch) goFullscreenLandscape();
@@ -463,6 +475,7 @@ async function main() {
 }
 
 main().catch((e) => {
+  diagnostics?.phase('error', e?.stack || e);
   console.error(e);
   $('load-text').textContent = `加载失败：${e.message || e}`;
 });

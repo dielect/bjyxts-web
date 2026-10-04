@@ -68,6 +68,7 @@ export class RGRuntime {
     this.audio = new RGAudio(this.audioFiles);
     this.ctx.imageSmoothingEnabled = false;
     this.lastList = [];
+    this.diagnosticState = () => {}; // May be replaced by the optional diagnostics recorder.
   }
 
   // ------------------------------------------------------------------ bitmaps
