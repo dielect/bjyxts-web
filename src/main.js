@@ -365,7 +365,7 @@ async function main() {
   // PreopenDirectory wraps a fresh Directory around the map; keep our root pointing at it
   const preopen = fds[3];
   window.__gameRoot = preopen.dir;
-  const wasi = new WASI(['ruby'], ['RUBY_FIBER_MACHINE_STACK_SIZE=16777216', 'RUBY_FIBER_VM_STACK_SIZE=2097152'], fds, { debug: false });
+  const wasi = new WASI(['ruby'], [], fds, { debug: false });
   const { vm } = await RubyVM.instantiateModule({ module: mod, wasip1: wasi });
   window.__vm = vm;
 
