@@ -17,14 +17,17 @@
 <link rel="apple-touch-icon" href="icon.png">
 <style>
 @font-face { font-family: "GameSong"; src: url("game/font.woff2") format("woff2"); font-display: block; }
-:root { --side: 0px; --pad: 150px; --ink: #e8e4d8; }
+:root { --side: 0px; --pad: 150px; --ink: #e8e4d8;
+  --safe-left: env(safe-area-inset-left, 0px); --safe-right: env(safe-area-inset-right, 0px);
+  --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px); }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 #dpad, #dpad *, .btn, .btn *, #pad-overlay, .side, .side * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: none; }
 html, body { margin: 0; height: 100%; background: #000; overflow: hidden; touch-action: none;
   -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
   font-family: "GameSong", "Songti SC", "SimSun", serif; color: var(--ink); }
-body { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
-#screen { display: block; image-rendering: auto; background: #000; box-shadow: 0 0 0 1px #222; }
+body { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left); }
+#screen { display: block; flex: none; image-rendering: auto; background: #000; box-shadow: 0 0 0 1px #222; }
 body.crisp #screen { image-rendering: pixelated; }
 
 /* ---- touch controls（与游戏画面同色：底 #90b057 / 深 #48582b / 墨 #283018） ---- */
@@ -32,8 +35,9 @@ body.crisp #screen { image-rendering: pixelated; }
 body { background: #12160b; }
 #controls { display: none; }
 body.pad-on #controls { display: block; }
-#dpad { position: fixed; left: calc(env(safe-area-inset-left, 0px) + (var(--side) - var(--pad)) / 2);
-  top: 50%; transform: translateY(-38%); width: var(--pad); height: var(--pad); touch-action: none; z-index: 5; }
+#dpad { position: fixed; left: calc(var(--safe-left) + (var(--side) - var(--pad)) / 2);
+  top: calc(var(--safe-top) + (100% - var(--safe-top) - var(--safe-bottom)) / 2);
+  transform: translateY(-38%); width: var(--pad); height: var(--pad); touch-action: none; z-index: 5; }
 /* 十字键：外层墨色十字 + 内缩 3px 的绿色十字，描边粗细一致，无接缝 */
 #dpad .cross { position: absolute; inset: 0; pointer-events: none; filter: drop-shadow(0 4px 0 var(--g-shadow)); }
 #dpad .cross::before, #dpad .cross::after { content: ""; position: absolute; inset: 0; }
@@ -60,8 +64,9 @@ body.pad-on #controls { display: block; }
 #dpad .dir.on { background: var(--g-dk); }
 #dpad .dir.on::before { background: var(--g-hi); }
 
-#btns { position: fixed; right: calc(env(safe-area-inset-right, 0px) + (var(--side) - var(--pad)) / 2);
-  top: 50%; transform: translateY(-38%); width: var(--pad); height: var(--pad); z-index: 5; }
+#btns { position: fixed; right: calc(var(--safe-right) + (var(--side) - var(--pad)) / 2);
+  top: calc(var(--safe-top) + (100% - var(--safe-top) - var(--safe-bottom)) / 2);
+  transform: translateY(-38%); width: var(--pad); height: var(--pad); z-index: 5; }
 .btn { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center;
   background: var(--g); border: 3px solid var(--g-ink); color: var(--g-ink); box-shadow: 0 4px 0 var(--g-shadow);
   font-size: calc(var(--pad) * .13); font-weight: bold; touch-action: none; font-family: inherit; padding: 0; }
@@ -72,8 +77,6 @@ body.pad-on #controls { display: block; }
   box-shadow: 0 3px 0 var(--g-shadow); }
 .btn.small.on { transform: translateY(2px); box-shadow: 0 1px 0 var(--g-shadow); }
 .btn.lpage { left: 0; } .btn.rpage { right: 0; }
-body.pad-overlay #dpad { left: calc(env(safe-area-inset-left, 0px) + 12px); top: auto; bottom: 12px; transform: none; opacity: .8; }
-body.pad-overlay #btns { right: calc(env(safe-area-inset-right, 0px) + 12px); top: auto; bottom: 12px; transform: none; opacity: .8; }
 
 #gear { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 8px); right: calc(env(safe-area-inset-right, 0px) + 8px);
   z-index: 8; width: 38px; height: 38px; border-radius: 6px; border: 2px solid var(--g-ink);

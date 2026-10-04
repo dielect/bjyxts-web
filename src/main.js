@@ -2,6 +2,7 @@ import { WASI, File, Directory, PreopenDirectory, OpenFile, ConsoleStdout } from
 import { RubyVM } from '@ruby/wasm-wasi';
 import { installRubyBridgeFix } from './ruby-wasm-bridge.js';
 import { RGRuntime } from './rgss.js';
+import { layoutGame } from './layout.js';
 import RB_CORE from './ruby/rgss_core.rb';
 import RB_KERNEL from './ruby/rgss_kernel.rb';
 import RB_RPG from './ruby/rpg.rb';
@@ -273,23 +274,7 @@ function setupTouch() {
 
 // ---------------------------------------------------------------- layout
 function layout() {
-  const vw = window.innerWidth, vh = window.innerHeight;
-  const portrait = vh > vw;
-  document.body.classList.toggle('portrait', portrait && isTouch);
-  const showPad = document.body.classList.contains('pad-on');
-  let side = 0;
-  if (showPad) side = Math.min(200, Math.max(120, vw * 0.17));
-  let scale = Math.min(vh / 480, (vw - side * 2) / 640);
-  let overlay = false;
-  if (showPad && scale < (vh / 480) * 0.72) { scale = Math.min(vh / 480, vw / 640); overlay = true; }
-  document.body.classList.toggle('pad-overlay', overlay);
-  const c = $('screen');
-  c.style.width = `${Math.floor(640 * scale)}px`;
-  c.style.height = `${Math.floor(480 * scale)}px`;
-  // 侧栏取画面两侧真实剩余宽度（叠加模式下沿用估算值）
-  const realSide = overlay ? side : Math.max(side, (vw - Math.floor(640 * scale)) / 2);
-  document.documentElement.style.setProperty('--side', `${realSide}px`);
-  document.documentElement.style.setProperty('--pad', `${Math.min(realSide * 0.86, vh * 0.46)}px`);
+  layoutGame(isTouch);
 }
 
 async function goFullscreenLandscape() {

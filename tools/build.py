@@ -273,9 +273,9 @@ def main():
     json.dump(manifest, open(os.path.join(GAME, 'manifest.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=0)
     # 协议第 4 条：发布时附带改动说明
     shutil.copy2(os.path.join(ROOT, 'docs', '改动说明.txt'), os.path.join(OUT, '改动说明.txt'))
-    subprocess.run(['npx', 'esbuild', 'src/main.js', '--bundle', '--format=iife', '--target=es2020',
+    subprocess.run([shutil.which('npx') or 'npx', 'esbuild', 'src/main.js', '--bundle', '--format=iife', '--target=es2020',
                     '--loader:.rb=text', '--outfile=public/app.js', '--minify'], cwd=ROOT, check=True)
-    subprocess.run(['npx', 'esbuild', 'src/diagnostics.js', '--bundle', '--format=iife', '--target=es2020',
+    subprocess.run([shutil.which('npx') or 'npx', 'esbuild', 'src/diagnostics.js', '--bundle', '--format=iife', '--target=es2020',
                     '--outfile=public/diagnostics.js', '--minify'], cwd=ROOT, check=True)
     # 静态文件在打包之后复制：index.html 里的版本号、构建号和脚本地址的内容哈希在这里填入
     for fn in os.listdir(os.path.join(ROOT, 'static')):

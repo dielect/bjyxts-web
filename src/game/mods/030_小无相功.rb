@@ -48,15 +48,15 @@ WebMod.common_event 26, '使用-无相残卷' do |c|
 end
 
 WebMod.edit 12 do |m|
-  # 西郊左下方篱笆外草地上的石桌（原先放在 (12,10)，紧贴小屋门口，不容易看出来）。外观：assets/props/go/stone-table-32.png → Prop_StoneTable（行走图事件不可通行，
+  # 西郊左下方篱笆内空地上的石桌。篱笆外 (6,13) 无法从入口走到。外观：assets/props/go/stone-table-32.png → Prop_StoneTable（行走图事件不可通行，
   # 站在旁边按确定键就能调查）；调查时在画面上方显示棋局近景 assets/props/go/zhenlong-board-288.png
   # （复制为 Graphics/Pictures/Go_Zhenlong.png）
-  m.event 6, 13, name: '珍珑棋局', sprite: 'Prop_StoneTable' do |c|
+  m.event 4, 10, name: '珍珑棋局', sprite: 'Prop_StoneTable' do |c|
     c.if_switch(106) do
       c.text '石桌上的残局已被你破解，黑白棋子散落一旁。'
     end.else do
       c.show_picture 1, 'Go_Zhenlong'
-      c.text '篱笆外的石桌上刻着一局残棋，黑白纠缠，杀气森然。'
+      c.text '篱笆内的石桌上刻着一局残棋，黑白纠缠，杀气森然。'
       c.text '石桌边缘刻着两行小字：“破此局者，得我逍遥。”“置之死地而后生。”'
       c.choices(%w[落子天元 抢占边角 自填一眼 不下了]) do |i|
         case i
@@ -82,7 +82,7 @@ WebMod.edit 12 do |m|
     c.if_good do
       c.one_of '看什么看？这一带是老子的地盘！',
                '想从西郊过，先交点过路钱……开玩笑的，就你这身板，老子还真不敢收。',
-               '篱笆外那张石桌上刻着一局怪棋，镇上的棋迷都说怎么下都是死，除非先把自己的棋杀了……疯话。'
+               '篱笆内那张石桌上刻着一局怪棋，镇上的棋迷都说怎么下都是死，除非先把自己的棋杀了……疯话。'
     end.else do
       c.text '哟，看你这副德性，也是同道中人？要不要跟着老子混？'
     end

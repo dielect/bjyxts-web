@@ -9,6 +9,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { WASI } from 'node:wasi';
 import { RubyVM } from '@ruby/wasm-wasi';
 
@@ -17,7 +18,7 @@ const ROOT = new URL('../', import.meta.url);
 export async function bootGame() {
   const module = await WebAssembly.compile(await fs.readFile(new URL('public/ruby.wasm', ROOT)));
   const wasi = new WASI({ version: 'preview1', args: ['ruby'], preopens: {
-    '/game': new URL('public/game', ROOT).pathname,
+    '/game': fileURLToPath(new URL('public/game', ROOT)),
     '/work': await fs.mkdtemp(path.join(os.tmpdir(), 'headless-game-')),   // 116 容错脚本载入时会在当前目录建 errors.txt
   } });
   const { vm } = await RubyVM.instantiateModule({ module, wasip1: wasi });
