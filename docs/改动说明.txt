@@ -6,6 +6,17 @@
 新增类格式：类名/类的作用；方法：“方法名：用途”；属性：“属性：用途”
 行数指原工程（PC V1.21 导出脚本，见 game-src/scripts）中的行号。
 
+2026-10-04 地图扩展层（新增地图、NPC、传送点不改原版数据文件）
+------------------------------------------------------------
+src/ruby/rgss_kernel.rb/Kernel/load_data/读文件前调用 WebMod.generate（新地图现场生成），读入后调用 WebMod.patch（给已有地图追加事件、改地形，给 MapInfos 登记新地图名）。未定义 WebMod 或没有登记内容时行为与原来相同。
+src/game/web_mods.rb/新增/WebMod 模块：WebMod.map 新建地图（复制模板地图的地形后清空事件）、WebMod.edit 修改原版地图；Builder 生成 NPC（与原版 NPC 事件模板相同）、传送点、通用事件、改地形；Commands 生成事件指令并自动处理缩进与分支。构建时作为脚本「web:地图扩展」插在 web:武功注册表 之后载入。
+src/game/mods/*.rb/新增目录/扩展内容，构建时按文件名顺序紧接 web:地图扩展 载入，脚本名为「mod:文件名」。目前没有内容文件，原版地图全部原样。
+tools/build.py/build_scripts/载入 web_mods.rb 和 src/game/mods/*.rb。
+tools/headless-game.mjs/新增/在 Node 中无界面载入游戏，供测试和工具共用。
+tools/mapview.mjs/新增/打印地图通行表和事件明细，用于确定摆放坐标。
+tools/mod-maps-test.mjs/新增/地图扩展层回归测试。
+tools/skill-baseline-test.mjs/载入方式/改用 tools/headless-game.mjs，测试内容不变。
+
 2026-10-04 武功注册表（为新增武功、武器做准备）
 ----------------------------------------------
 src/game/web_skills.rb/新增/WebSkill 模块：武功表（编号 => 分类、基础武功）、武器类型表、启用武功后学会的绝招表、学习点数变量查询。构建时作为脚本「web:武功注册表」插在 117 - Main 之前、web:扩展 之前载入。

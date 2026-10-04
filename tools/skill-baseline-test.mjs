@@ -21,43 +21,15 @@
 //   013 Data_NPC 的 39..89 循环，026 set_turns 的 72..77，009 Data_Defend 的默认 46。
 //   重构时这几处要人工核对。
 import fs from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
-import { WASI } from 'node:wasi';
-import { RubyVM } from '@ruby/wasm-wasi';
+import { bootGame } from './headless-game.mjs';
 
 const ROOT = new URL('../', import.meta.url);
 const FIXTURE = new URL('tools/fixtures/skill-baseline.json', ROOT);
 const update = process.argv.includes('--update');
-
-const module = await WebAssembly.compile(await fs.readFile(new URL('public/ruby.wasm', ROOT)));
-const wasi = new WASI({ version: 'preview1', args: ['ruby'], preopens: {
-  '/game': new URL('public/game', ROOT).pathname,
-  '/work': await fs.mkdtemp(path.join(os.tmpdir(), 'skill-baseline-')),   // 116 容错脚本载入时会在当前目录建 errors.txt
-} });
-const { vm } = await RubyVM.instantiateModule({ module, wasip1: wasi });
-globalThis.RG = new Proxy({}, { get: () => () => 0 });
-globalThis.RGScripts = JSON.parse(await fs.readFile(new URL('public/game/scripts.json', ROOT), 'utf8'))
-  .filter(([name]) => name !== '117:Main');
-for (const f of ['rgss_core', 'rgss_kernel', 'rpg']) vm.eval(await fs.readFile(new URL(`src/ruby/${f}.rb`, ROOT), 'utf8'));
+const rb = await bootGame();
 
 // Ruby 端每行输出 “分组\t键\t值”，由 JS 组装成 JSON（运行时没有 JSON 库）。
-const out = vm.eval(String.raw`
-Dir.chdir('/work')
-s = JS.global[:RGScripts]
-s[:length].to_i.times { |i| TOPLEVEL_BINDING.eval(s[i][1].to_s, s[i][0].to_s, 1) }
-$data_system  = load_data('/game/Data/System.rxdata')
-$data_actors  = load_data('/game/Data/Actors.rxdata')
-$data_classes = load_data('/game/Data/Classes.rxdata')
-$data_skills  = load_data('/game/Data/Skills.rxdata')
-$data_weapons = load_data('/game/Data/Weapons.rxdata')
-$data_armors  = load_data('/game/Data/Armors.rxdata')
-$data_states  = load_data('/game/Data/States.rxdata')
-$game_switches  = Game_Switches.new
-$game_variables = Game_Variables.new
-$game_actors    = Game_Actors.new
-$game_party     = Game_Party.new
-$game_party.actors.push($game_actors[1])
+const out = rb(String.raw`
 ACTOR = $game_party.actors[0]
 def ACTOR.maxhp; 10**9; end       # 练功检查要求满血，这里只测类别逻辑
 lines = []
@@ -163,7 +135,7 @@ if defined?(WebSkill)
   end
 end
 lines.join("\n")
-`).toString();
+`);
 
 const result = {};
 for (const line of out.split('\n')) {

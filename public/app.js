@@ -965,9 +965,14 @@ end
 module Kernel
   def load_data(fn)
     fn = RGWeb.utf8(fn.to_s)
+    # \u5730\u56FE\u6269\u5C55\u5C42\uFF08src/game/web_mods.rb\uFF09\uFF1A\u65B0\u5730\u56FE\u73B0\u573A\u751F\u6210\uFF0C\u5DF2\u6709\u5730\u56FE\u548C MapInfos \u8BFB\u5165\u540E\u6253\u8865\u4E01
+    if defined?(WebMod) && (generated = WebMod.generate(fn))
+      return generated
+    end
     data = File.open(fn, 'rb') { |f| f.read }
     obj = RGWeb.fix_enc(Marshal.load(data))
     RGWeb.patch_common_events(obj) if fn =~ /CommonEvents\\.rxdata\\z/i
+    WebMod.patch(fn, obj) if defined?(WebMod)
     obj
   end
   def save_data(obj, fn)

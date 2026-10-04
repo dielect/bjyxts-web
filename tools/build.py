@@ -82,6 +82,10 @@ def build_scripts():
         if num == '117':
             # 武功注册表：覆盖原版的武功 / 武器分类判断，必须晚于原版脚本、早于 Main
             out.append(['web:武功注册表', open(os.path.join(ROOT, 'src', 'game', 'web_skills.rb'), encoding='utf-8').read()])
+            # 地图扩展层及其内容（src/game/mods/*.rb 按文件名顺序），见 docs/地图扩展指南.md
+            out.append(['web:地图扩展', open(os.path.join(ROOT, 'src', 'game', 'web_mods.rb'), encoding='utf-8').read()])
+            for mod in sorted(glob.glob(os.path.join(ROOT, 'src', 'game', 'mods', '*.rb'))):
+                out.append([f'mod:{os.path.basename(mod)[:-3]}', open(mod, encoding='utf-8').read()])
             # 网页版扩展（前世奇遇 / 数值修改器），必须在 Main 之前载入
             out.append(['web:扩展', open(os.path.join(ROOT, 'src', 'game', 'web_extras.rb'), encoding='utf-8').read()])
         if num == '002':

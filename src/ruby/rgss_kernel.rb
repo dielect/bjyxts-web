@@ -77,9 +77,14 @@ end
 module Kernel
   def load_data(fn)
     fn = RGWeb.utf8(fn.to_s)
+    # 地图扩展层（src/game/web_mods.rb）：新地图现场生成，已有地图和 MapInfos 读入后打补丁
+    if defined?(WebMod) && (generated = WebMod.generate(fn))
+      return generated
+    end
     data = File.open(fn, 'rb') { |f| f.read }
     obj = RGWeb.fix_enc(Marshal.load(data))
     RGWeb.patch_common_events(obj) if fn =~ /CommonEvents\.rxdata\z/i
+    WebMod.patch(fn, obj) if defined?(WebMod)
     obj
   end
   def save_data(obj, fn)
