@@ -59,6 +59,8 @@ PATCHES = [
     ('113', 'skill_point=skill_number+60', 'skill_point=WebSkill.point_var(skill_number)', 1),
     ('013', 'for i in 39..89', 'for i in WebSkill.all_ids', 2),
     ('026', 'for i in 72..77', 'for i in WebSkill.advanced(WebSkill::INNER)', 1),
+    # 流星飞掷对 126 号以后的敌人无效；地图扩展层的新敌人默认可以击中（elite 的除外）
+    ('025', 'hit=0 if self.id>125', 'hit=0 if WebMod.finisher_immune?(self.id)', 1),
 ]
 
 

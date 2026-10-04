@@ -90,6 +90,44 @@ module ModCheck
         end
       end
     end
+    errors.concat(enemy_errors)
+    errors
+  end
+
+  # 能战斗的 NPC：敌人、敌群、数值表、战斗图
+  def enemy_errors
+    errors = []
+    enemies = load_data('/game/Data/Enemies.rxdata')
+    troops = load_data('/game/Data/Troops.rxdata')
+    WebMod.enemies.each do |id, d|
+      e = enemies[id]
+      t = troops[id]
+      errors << "敌人 #{id} 没有生成" unless e && e.id == id && e.name == d[:name]
+      errors << "敌群 #{id} 的成员不是敌人 #{id}" unless t && t.members.map(&:enemy_id) == [id]
+      errors << "敌人 #{id} 的战斗图 #{e&.battler_name} 不存在" unless e && File.exist?("/game/Graphics/Battlers/#{e.battler_name}.png")
+      row = get_npc_data(id)
+      unless row.is_a?(Array) && row.size == 31
+        errors << "敌人 #{id} 的数值表不是 31 项"
+        next
+      end
+      errors << "敌人 #{id} 的武器 #{row[9]} 不存在" if row[9] != 0 && !$data_weapons[row[9]]
+      [10, 11].each { |i| errors << "敌人 #{id} 的装备 #{row[i]} 不存在" if row[i] != 0 && !$data_armors[row[i]] }
+      row[12, 12].each do |sk, lv|
+        errors << "敌人 #{id} 的武功 #{sk} 没有在武功注册表登记" if sk != 0 && !WebSkill::SKILLS.key?(sk)
+      end
+      (4..8).each do |i|
+        sk = row[i]
+        errors << "敌人 #{id} 启用的武功 #{sk} 不在它的武功列表里" if sk != 0 && row[12, 12].none? { |s, _| s == sk }
+      end
+    end
+    used = []
+    (WebMod.maps.keys | WebMod.edits.keys).each do |mid|
+      load_data(path(mid)).events.each_value do |ev|
+        ev.pages[0].list.each { |c| used << c.parameters[0] if c.code == 301 && c.parameters[0] >= WebMod::FIRST_ENEMY_ID }
+      end
+    end
+    (WebMod.enemies.keys - used).each { |id| errors << "敌人 #{id} 定义了，但没有放到任何地图上" }
+    (used - WebMod.enemies.keys).each { |id| errors << "地图上的战斗用到敌群 #{id}，但没有定义" }
     errors
   end
 end
@@ -113,7 +151,12 @@ rb(String.raw`
 # 先清空实际内容，示例不受它们影响（第一部分已检查过）
 WebMod.maps.clear
 WebMod.edits.clear
+WebMod.enemies.clear
+WebMod.enemy 144, name: '测试武师', tile: 852, like: 30, maxhp: 300, gold: 50,
+             stats: { 膂力: 30, 闪避: 20, 拳脚: 58, 经验: 50000 }, skills: { 40 => 80, 58 => 60, 47 => 50 }
 WebMod.map 90, name: '测试地图', parent: 21, base: 6 do |m|
+  m.npc 11, 8, fight: { enemy: 144, loot: [[:armor, 4], [:item, 16, 2]], morality: [-10, -5], switch: 103 },
+        talk: ['来比划比划？'], look: '一个精壮的武师。'
   m.npc 9, 6, name: '测试老人', tile: 850, talk: ['第一页。', '第二页。'], look: { age: 6, text: '一位测试用的老人。' }
   m.npc 5, 6, name: '分支老人', tile: 851 do |c|
     c.if_switch(102) { c.text '开关已开。' }.else { c.text '开关未开。'; c.switch(102) }
@@ -126,6 +169,7 @@ WebMod.edit 21 do |m|
 end
 nil
 `);
+rb('$data_enemies = load_data("/game/Data/Enemies.rxdata"); $data_troops = load_data("/game/Data/Troops.rxdata"); nil');
 check('二、示例内容');
 
 // 引擎结构检查
@@ -143,7 +187,30 @@ const structure = rb(String.raw`
   branch = m.events.values.find { |e| e.name == '分支老人' }.pages[0].list
   got = shape.call(branch[3, 8])   # 交谈分支内的条件分歧
   out << "条件分支结构错误：#{got}" unless got == '1:111 2:101 2:0 1:411 2:101 2:121 2:0 1:412'
-  out << "新地图事件编号应从 1 开始：#{m.events.keys.sort.inspect}" unless m.events.keys.sort == [1, 2, 3]
+  out << "新地图事件编号应从 1 开始：#{m.events.keys.sort.inspect}" unless m.events.keys.sort == [1, 2, 3, 4]
+  # 能战斗的 NPC：与原版道德和尚（地图 3 事件 4）的战斗分支对照，原版多出的“平一指任务”判断不生成
+  fighter = m.events.values.find { |e| e.name == '测试武师' }
+  fl = fighter.pages[0].list
+  got = shape.call(fl)
+  want = '0:355 0:102 0:402 1:101 1:0 0:402 1:355 1:0 0:402 1:355 1:655 1:655 1:655 1:655 1:301 1:601 ' +
+         '2:111 3:111 4:122 4:0 3:411 4:122 4:0 3:412 3:123 3:121 3:355 3:655 3:0 2:412 2:128 2:126 2:121 2:0 ' +
+         '1:602 2:0 1:603 2:117 2:0 1:604 1:0 0:403 1:0 0:404 0:355 0:0'
+  out << "战斗 NPC 指令骨架不对：#{got}" unless got == want
+  p = lambda { |code| fl.find { |c| c.code == code }.parameters }
+  out << "战斗参数错误：#{p.call(301).inspect}" unless p.call(301) == [144, true, true]
+  out << "战利品名字错误：#{fl.select { |c| c.code == 655 }.map { |c| c.parameters[0] }.inspect}" unless fl.select { |c| c.code == 655 }.map { |c| c.parameters[0] }.first(2) == ['$trea1=$data_armors[4].name', '$trea2=$data_items[16].name']
+  out << "道德变化错误" unless fl.select { |c| c.code == 122 }.map(&:parameters) == [[160, 160, 2, 0, 10], [160, 160, 2, 0, 5]]
+  out << "掉落指令错误" unless [p.call(128), p.call(126)] == [[4, 0, 0, 1], [16, 0, 0, 2]]
+  out << "选项错误：#{p.call(102).inspect}" unless p.call(102) == [%w[交谈 查看 战斗], 5]
+  pg2 = fighter.pages[1]
+  out << '尸体页错误' unless pg2 && pg2.condition.self_switch_valid && pg2.condition.self_switch_ch == 'A' && pg2.graphic.tile_id == 508
+  # 敌人数据
+  en = $data_enemies[144]
+  out << "敌人数据错误：#{[en.name, en.battler_name, en.maxhp, en.gold].inspect}" unless [en.name, en.battler_name, en.maxhp, en.gold] == ['测试武师', 'NPC_Tile_29', 300, 50]
+  row = get_npc_data(144)
+  out << "数值表错误：#{row.inspect}" unless row[0] == 30 && row[25] == 20 && row[4] == 58 && row[26] == 50000 && row[12, 3] == [[40, 80], [58, 60], [47, 50]] && row[15] == [0, 0] && row[1] == get_npc_data(30)[1]
+  out << '模板 30 的数值表被改动' unless get_npc_data(30)[0] == 21
+  out << '流星飞掷免疫判断错误' unless [WebMod.finisher_immune?(144), WebMod.finisher_immune?(126), WebMod.finisher_immune?(30)] == [false, true, false]
   e21 = load_data('/game/Data/Map021.rxdata').events.keys.sort
   out << "北郊新增事件编号应为 1001：#{e21.inspect}" unless e21.last == 1001
   begin
