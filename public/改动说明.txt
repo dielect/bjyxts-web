@@ -6,6 +6,18 @@
 新增类格式：类名/类的作用；方法：“方法名：用途”；属性：“属性：用途”
 行数指原工程（PC V1.21 导出脚本，见 game-src/scripts）中的行号。
 
+2026-10-04 Ruby 引擎升级（修复移动端“过一会自动刷新/SystemStackError”）
+----------------------------------------------------------------------
+package.json/依赖/改用 @ruby/4.0-wasm-wasi 2.10.1（原 3.4 版每次 raise/break 漏 C 栈，长时间运行后栈耗尽）。
+tools/patch_ruby_wasm.py/新增/对 4.0 的 ruby.wasm 打二进制补丁：关闭启动时 256MB 形状表预分配，校验哈希与指令序列。
+tools/build.py/build/复制 ruby.wasm 时自动打补丁；manifest 中 ruby.wasm、scripts.json 地址加内容哈希版本号。
+src/main.js/启动流程/manifest 每次校验不走缓存；scripts.json 按 manifest 地址加载；新增不重入调试通道 window.__rb。
+src/game/web_extras.rb/Graphics 钩子/web_dev_poll：在游戏帧内执行 __rb 队列中的调试代码。
+src/rgss.js/音频与画布/BGM、BGS、ME 各复用一个 <audio> 并在停止时释放音源；位图与图块缓存释放时把画布尺寸设 0，立即归还 iOS 显存。
+static/index.html/脚本版本参数/更新为 20261004-ruby40。
+tools/stack-drift-test.mjs、tools/wasm-mem-test.mjs、tools/soak.py/新增测试/漏栈、内存与浏览器长时间压力测试。
+游戏脚本未改动（Ruby 4.0 下运行原脚本已验证：序幕、建角、奇遇、地图、菜单、换地图、战斗、存读档）。
+
 2026-10-04 Ruby/WASM 桥接内存修复补充
 ----------------------------------
 src/ruby-wasm-bridge.js/新增适配器/installRubyBridgeFix/全文件/对 2.10.1 legacy ABI 的临时输入句柄按调用作用域归还，输入参数缓冲区按嵌套深度复用；保留返回值、嵌套调用保护及异常传播。

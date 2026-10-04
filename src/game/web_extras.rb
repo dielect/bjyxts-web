@@ -135,6 +135,18 @@ module Graphics
     def update
       web_extras_graphics_update
       WebCheat.poll if (@frame_count % 5) == 0
+      web_dev_poll
+    end
+    # 见 main.js 中 window.__rb
+    def web_dev_poll
+      code = RGWeb.call(:devTake).to_s
+      return if code.empty? || code == 'undefined' || code == 'null'
+      r = begin
+        TOPLEVEL_BINDING.eval(code).inspect
+      rescue Exception => e
+        "#{e.class}: #{e.message}"
+      end
+      RGWeb.call(:devPut, r)
     end
   end
 end

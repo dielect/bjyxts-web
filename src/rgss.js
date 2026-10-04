@@ -7,6 +7,9 @@ const AT_RECTS = [32,64,48,64,32,80,48,80,64,0,48,64,32,80,48,80,32,64,80,0,32,8
 export const SCREEN_W = 640;
 export const SCREEN_H = 480;
 
+// iOS Safari 只有在 GC 时才回收画布显存，且所有画布总量有硬上限（超出会直接杀掉页面），
+// 所以不用的画布要主动把尺寸设为 0，立即归还显存。
+function freeCanvas(c) { if (c) { c.width = 0; c.height = 0; } }
 function mkCanvas(w, h) {
   const c = document.createElement('canvas');
   c.width = Math.max(1, w | 0);
@@ -292,6 +295,7 @@ export class RGRuntime {
     t.xs = xs; t.ys = ys; t.zs = zs;
     t.data = data ? Int16Array.from(String(data).split(','), Number) : null;
     t.prio = prio ? Int16Array.from(String(prio).split(','), Number) : null;
+    if (t.cache) for (const c of t.cache.values()) freeCanvas(c);
     t.cache = new Map();
     this.tilemaps.set(id, t);
   }
@@ -810,6 +814,21 @@ class RGAudio {
     this.seActive = new Set();
     this.master = { bgm: 1, se: 1 };
     this.bgmPausedForME = false;
+    // 每个声道固定复用一个 <audio>：iOS 上新建的元素需要重新获得播放许可，
+    // 频繁新建也会让旧元素的解码缓冲堆积到 GC 才释放。
+    this.els = {};
+    for (const k of ['bgm', 'bgs', 'me']) {
+      const el = new Audio();
+      el.preload = 'auto';
+      el.preservesPitch = false; el.mozPreservesPitch = false; el.webkitPreservesPitch = false;
+      this.els[k] = el;
+    }
+    this.unlocked = false;
+  }
+  _release(el) {
+    el.onended = null;
+    try { el.pause(); } catch (e) { /* ignore */ }
+    if (el.getAttribute('src')) { el.removeAttribute('src'); try { el.load(); } catch (e) { /* ignore */ } }
   }
   unlock() {
     if (!this.ctx) {
@@ -817,6 +836,17 @@ class RGAudio {
       if (AC) this.ctx = new AC();
     }
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    if (!this.unlocked) {
+      this.unlocked = true;
+      // 在用户点击的同一调用栈里让每个元素 play 一次，取得 iOS 的播放许可
+      for (const k of ['bgm', 'bgs', 'me']) {
+        const el = this.els[k];
+        if (this.ch[k] || (k === 'me' && this.me)) continue;
+        el.muted = true;
+        el.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+        el.play().then(() => { if (el.muted) { el.pause(); el.muted = false; this._release(el); } }).catch(() => { el.muted = false; });
+      }
+    }
     // iOS: prime media elements
     for (const k of ['bgm', 'bgs']) { const c = this.ch[k]; if (c && c.el.paused && c.wantPlay) c.el.play().catch(() => {}); }
   }
@@ -843,9 +873,10 @@ class RGAudio {
       return;
     }
     this.stop(kind);
-    const el = new Audio(u);
+    const el = this.els[kind];
+    el.muted = false;
     el.loop = true;
-    el.preservesPitch = false; el.mozPreservesPitch = false; el.webkitPreservesPitch = false;
+    el.src = u;
     el.playbackRate = pitch / 100;
     const c = { el, url: u, vol: vol / 100, fadeMul: 1, wantPlay: true };
     this.ch[kind] = c;
@@ -854,7 +885,7 @@ class RGAudio {
   }
   stop(kind) {
     const c = this.ch[kind];
-    if (c) { if (c.fadeTimer) clearInterval(c.fadeTimer); c.el.pause(); c.el.src = ''; c.wantPlay = false; }
+    if (c) { if (c.fadeTimer) clearInterval(c.fadeTimer); c.wantPlay = false; this._release(c.el); }
     this.ch[kind] = null;
   }
   _fadeEl(c, ms, done) {
@@ -874,8 +905,10 @@ class RGAudio {
     const u = this.url(name);
     this.stopME();
     if (!u) return;
-    const el = new Audio(u);
-    el.preservesPitch = false;
+    const el = this.els.me;
+    el.muted = false;
+    el.loop = false;
+    el.src = u;
     el.playbackRate = pitch / 100;
     const c = { el, url: u, vol: vol / 100, fadeMul: 1 };
     this.me = c;
@@ -891,7 +924,7 @@ class RGAudio {
   }
   stopME() {
     const c = this.me;
-    if (c) { c.el.onended = null; c.el.pause(); c.el.src = ''; }
+    if (c) { if (c.fadeTimer) clearInterval(c.fadeTimer); this._release(c.el); }
     this.me = null;
     const b = this.ch.bgm;
     if (c && b && b.wantPlay) b.el.play().catch(() => {});

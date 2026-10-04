@@ -171,9 +171,18 @@ def main():
     data = sorted(os.path.relpath(p, GAME).replace(os.sep, '/') for p in glob.glob(os.path.join(GAME, 'Data', '*.rxdata')))
     audio = build_audio()
     build_font(scripts)
-    wasm_src = os.path.join(ROOT, 'node_modules/@ruby/3.4-wasm-wasi/dist/ruby.wasm')
-    shutil.copy2(wasm_src, os.path.join(OUT, 'ruby.wasm'))
-    manifest = {'wasm': 'ruby.wasm', 'images': images, 'audio': audio, 'data': data, 'version': '1.21-web1'}
+    # 使用 Ruby 4.0（3.4.1 构建在 Fiber 中多次 raise 后 SystemStackError，导致 iOS 崩溃/卡死）；
+    # 构建时用 tools/patch_ruby_wasm.py 关闭 4.0 启动时约 256MB 的形状缓存预分配，详见该脚本说明。
+    wasm_src = os.path.join(ROOT, 'node_modules/@ruby/4.0-wasm-wasi/dist/ruby.wasm')
+    subprocess.check_call([sys.executable, os.path.join(ROOT, 'tools/patch_ruby_wasm.py'),
+                           wasm_src, os.path.join(OUT, 'ruby.wasm')])
+    # ruby.wasm / scripts.json 按内容哈希加版本参数，更新后浏览器（尤其 iOS Safari）不会继续用旧缓存
+    def _ver(path):
+        import hashlib
+        return hashlib.sha1(open(path, 'rb').read()).hexdigest()[:10]
+    manifest = {'wasm': 'ruby.wasm?v=' + _ver(os.path.join(OUT, 'ruby.wasm')),
+                'scripts': 'game/scripts.json?v=' + _ver(os.path.join(GAME, 'scripts.json')),
+                'images': images, 'audio': audio, 'data': data, 'version': '1.21-web2'}
     json.dump(manifest, open(os.path.join(GAME, 'manifest.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=0)
     for fn in os.listdir(os.path.join(ROOT, 'static')):
         shutil.copy2(os.path.join(ROOT, 'static', fn), os.path.join(OUT, fn))

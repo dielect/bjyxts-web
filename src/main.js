@@ -333,6 +333,17 @@ function setupSettings() {
   };
   const send = (c) => { if (rg) { rg.cheatQueue = c; msg('处理中…'); } };
   rg.cheatQueue = '';
+  // 开发调试通道：window.__rb('Ruby 代码') -> Promise<inspect 结果字符串>
+  // 代码在游戏自己的 Graphics.update 里执行，不会在 VM 挂起时重入（直接调 __vm.eval 会重入，
+  // 在战斗等深调用里可能引发 SystemStackError）。游戏卡住时 3 秒超时返回 'TIMEOUT'。
+  rg.devQueue = [];
+  rg.devTake = () => { const j = rg.devQueue[0]; return j ? j.code : ''; };
+  rg.devPut = (r) => { const j = rg.devQueue.shift(); if (j) j.res(String(r)); };
+  window.__rb = (code) => new Promise((res) => {
+    const j = { code: String(code), res };
+    rg.devQueue.push(j);
+    setTimeout(() => { const i = rg.devQueue.indexOf(j); if (i >= 0) { rg.devQueue.splice(i, 1); res('TIMEOUT'); } }, 3000);
+  });
   rg.cheatTake = () => { const c = rg.cheatQueue; rg.cheatQueue = ''; return c; };
   rg.cheatReport = (r) => {
     const a = String(r).split('|');
@@ -366,7 +377,7 @@ async function main() {
   window.addEventListener('orientationchange', () => setTimeout(layout, 200));
 
   setProgress('读取资源清单…', 0);
-  const manifest = await (await fetch('game/manifest.json')).json();
+  const manifest = await (await fetch('game/manifest.json', { cache: 'no-cache' })).json();
 
   // ruby.wasm
   const wasmP = (async () => {
@@ -393,7 +404,7 @@ async function main() {
     const r = await fetch(`game/${encodeURI(p)}`);
     putFile(root, p, new Uint8Array(await r.arrayBuffer()));
   }));
-  const scriptsP = fetch('game/scripts.json').then((r) => r.json());
+  const scriptsP = fetch(manifest.scripts || 'game/scripts.json').then((r) => r.json());
   const fontP = (document.fonts && document.fonts.load)
     ? Promise.race([document.fonts.load('22px GameSong', '英雄坛说'), new Promise((r) => setTimeout(r, 15000))]).catch(() => {})
     : Promise.resolve();
@@ -414,6 +425,7 @@ async function main() {
   const wasi = new WASI(['ruby'], [], fds, { debug: false });
   const { vm, instance } = await RubyVM.instantiateModule({ module: mod, wasip1: wasi });
   const bridgeSnapshot = installRubyBridgeFix(vm);
+  window.__bridge = bridgeSnapshot;
   window.__vm = vm;
 
   rg = new RGRuntime({
