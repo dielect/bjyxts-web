@@ -16,6 +16,8 @@ src/main.js/启动流程/manifest 每次校验不走缓存；scripts.json 按 ma
 src/game/web_extras.rb/Graphics 钩子/web_dev_poll：在游戏帧内执行 __rb 队列中的调试代码。
 src/rgss.js/音频与画布/BGM、BGS、ME 各复用一个 <audio> 并在停止时释放音源；位图与图块缓存释放时把画布尺寸设 0，立即归还 iOS 显存。
 static/index.html/脚本版本参数/更新为 20261004-ruby40。
+src/main.js/setupTouch/十字键与游戏按键在 touchstart/touchmove/touchend 上阻止系统手势（passive:false），全局拦截非输入框的 selectstart，修复 iOS 点按方向键时出现文字放大镜（玻璃效果）。
+static/index.html/样式/十字键、按键及子元素显式禁止文字选择、长按菜单与触摸手势。
 tools/stack-drift-test.mjs、tools/wasm-mem-test.mjs、tools/soak.py/新增测试/漏栈、内存与浏览器长时间压力测试。
 游戏脚本未改动（Ruby 4.0 下运行原脚本已验证：序幕、建角、奇遇、地图、菜单、换地图、战斗、存读档）。
 

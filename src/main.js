@@ -247,6 +247,15 @@ function setupTouch() {
     btn.addEventListener('lostpointercapture', off);
   }
   document.addEventListener('contextmenu', (e) => e.preventDefault());
+  // iOS：只在 pointerdown 上 preventDefault 拦不住系统手势（长按/双击出现的文字放大镜、双击缩放），
+  // 必须在 touch 事件上用 passive:false 阻止。Pointer 事件仍会正常派发，按键逻辑不受影响。
+  // 只作用于十字键和游戏按键；设置按钮等依赖 click 的元素不能加，否则点击会失效。
+  const blockTouch = (e) => { if (e.cancelable) e.preventDefault(); };
+  for (const el of [pad, ...document.querySelectorAll('.btn[data-code]')]) {
+    for (const t of ['touchstart', 'touchmove', 'touchend']) el.addEventListener(t, blockTouch, { passive: false });
+  }
+  const editable = (t) => t && t.closest && t.closest('input, textarea, [contenteditable="true"]');
+  document.addEventListener('selectstart', (e) => { if (!editable(e.target)) e.preventDefault(); });
 }
 
 // ---------------------------------------------------------------- layout
