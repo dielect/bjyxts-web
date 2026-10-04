@@ -124,6 +124,19 @@ const ui = {
       setTimeout(() => document.addEventListener('keydown', onKey, true), 150);
     });
   },
+  confirm(text) {
+    return new Promise((resolve) => {
+      const dlg = $('dialog');
+      $('dlg-text').textContent = text;
+      $('dlg-input').style.display = 'none';
+      $('dlg-cancel').style.display = '';
+      dlg.classList.add('show');
+      rg && rg.clearInput();
+      const done = (v) => { dlg.classList.remove('show'); $('dlg-ok').onclick = null; $('dlg-cancel').onclick = null; resolve(v); };
+      $('dlg-ok').onclick = () => done(true);
+      $('dlg-cancel').onclick = () => done(false);
+    });
+  },
   prompt(title, def, max) {
     return new Promise((resolve) => {
       const dlg = $('dialog');
@@ -333,7 +346,8 @@ function setupSettings() {
     location.reload();
   });
   $('set-reset').addEventListener('click', async () => { location.reload(); });
-  // ---- 数值修改器：指令由 Ruby 端（src/game/web_extras.rb, WebCheat.poll）每 5 帧取走一次
+  // ---- 沙盒模式：指令由 Ruby 端（src/game/web_extras.rb, WebCheat.poll）每 5 帧取走一次。
+  // 当前存档开启沙盒后才能修改数值；Ruby 端也会拒绝未开启时的修改。
   const msg = (t) => { $('cheat-msg').textContent = t; };
   const num = (id) => {
     const v = $(id).value.trim();
@@ -354,9 +368,17 @@ function setupSettings() {
     setTimeout(() => { const i = rg.devQueue.indexOf(j); if (i >= 0) { rg.devQueue.splice(i, 1); res('TIMEOUT'); } }, 3000);
   });
   rg.cheatTake = () => { const c = rg.cheatQueue; rg.cheatQueue = ''; return c; };
+  const showSandbox = (on) => {
+    document.body.classList.toggle('sandbox', on);
+    $('sandbox-off').hidden = on;
+    $('sandbox-panel').hidden = !on;
+  };
+  rg.sandboxState = (v) => showSandbox(+v === 1);
   rg.cheatReport = (r) => {
     const a = String(r).split('|');
-    if (a[0] !== 'ok') { msg(a.slice(1).join('|') || '失败'); return; }
+    if (a[0] !== 'ok') { msg(a.slice(1).join('|') || '失败'); $('sandbox-msg').textContent = a.slice(1).join('|') || ''; return; }
+    showSandbox(a[5] === '1');
+    $('sandbox-msg').textContent = '';
     $('cheat-exp').value = a[1]; $('cheat-pot').value = a[2]; $('cheat-gold').value = a[3];
     msg(rg.cheatApplied ? `已修改「${a[4]}」的数值。想保留请回到游戏，在菜单「功能」里存档。` : `当前角色：${a[4]}`);
     rg.cheatApplied = false;
@@ -373,6 +395,10 @@ function setupSettings() {
     if (e === null || p === null || g === null) { msg('请输入非负整数（可先点「读取当前」）'); return; }
     rg.cheatApplied = true;
     send(`set|${e}|${p}|${Math.min(g, 9999999)}`);
+  });
+  $('sandbox-on').addEventListener('click', async () => {
+    const ok = await ui.confirm('开启沙盒模式后，可以直接修改经验、潜能和金钱。\n本存档会永久标记为“沙盒”，无法取消。确定开启吗？');
+    if (ok) { $('sandbox-msg').textContent = '处理中…'; rg.cheatQueue = 'sandbox'; }
   });
   $('gear').addEventListener('click', () => send('get'));
   if (localStorage.getItem(SAVE_PREFIX + '#pad') === '0') document.body.classList.remove('pad-on');

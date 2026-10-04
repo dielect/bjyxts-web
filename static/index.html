@@ -104,6 +104,10 @@ body.pad-overlay #btns { right: calc(env(safe-area-inset-right, 0px) + 12px); to
   box-shadow: 0 4px 0 var(--g-shadow); transition: none; }
 .panel button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--g-shadow); background: var(--g-dk); color: var(--g-pale); }
 .panel button:focus-visible { outline: 3px dashed var(--g-ink); outline-offset: 2px; }
+#sandbox-badge { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 8px); left: calc(env(safe-area-inset-left, 0px) + 8px);
+  z-index: 8; display: none; padding: 2px 8px; font-size: 13px; letter-spacing: 2px; color: var(--g-pale); background: var(--g-ink);
+  border: 2px solid var(--g-hi); pointer-events: none; }
+body.sandbox #sandbox-badge { display: block; }
 #set-close, #dlg-ok, #cheat-apply { background: var(--g-ink); color: var(--g-pale); }
 #set-close:active, #dlg-ok:active, #cheat-apply:active { background: var(--g-dk); }
 .row { display: flex; align-items: center; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
@@ -197,6 +201,7 @@ body.portrait #rotate { display: flex; }
   </div>
 </div>
 <button id="gear" aria-label="设置"></button>
+<div id="sandbox-badge" title="本存档开启了沙盒模式">沙盒</div>
 
 <div id="loading" class="overlay show">
   <h1>白金英雄坛说</h1>
@@ -234,12 +239,19 @@ body.portrait #rotate { display: flex; }
   <div class="hint" style="text-align:left;margin:6px 0 10px">存档自动保存在本浏览器中（与 PC 版 Gmud.sav 格式相同，可互相导入）。清除浏览器数据会删除存档，建议定期导出备份。</div>
   <div class="row"><button data-export-diagnostics>导出诊断日志</button></div>
   <div class="hint" data-diagnostic-status></div>
-  <h3 class="sub">数值修改</h3>
-  <div class="row cheat"><label for="cheat-exp">经验</label><input id="cheat-exp" type="number" min="0" step="1" inputmode="numeric"></div>
-  <div class="row cheat"><label for="cheat-pot">潜能</label><input id="cheat-pot" type="number" min="0" step="1" inputmode="numeric"></div>
-  <div class="row cheat"><label for="cheat-gold">金钱</label><input id="cheat-gold" type="number" min="0" max="9999999" step="1" inputmode="numeric"></div>
-  <div class="row"><button id="cheat-read">读取当前</button><button id="cheat-add">经验潜能各加一千万</button><button id="cheat-apply">应用修改</button></div>
-  <div class="hint" id="cheat-msg" style="text-align:left;margin:2px 0 12px">修改立即生效。想保留请回到游戏，在菜单「功能」里存档。</div>
+  <h3 class="sub">沙盒模式</h3>
+  <div id="sandbox-off">
+    <div class="hint" style="text-align:left;margin:2px 0 8px">开启后可以直接修改经验、潜能和金钱，适合测试或随便玩。开启后本存档会永久标记为“沙盒”。</div>
+    <div class="row"><button id="sandbox-on">开启沙盒模式</button></div>
+    <div class="hint" id="sandbox-msg" style="text-align:left;margin:2px 0 12px"></div>
+  </div>
+  <div id="sandbox-panel" hidden>
+    <div class="row cheat"><label for="cheat-exp">经验</label><input id="cheat-exp" type="number" min="0" step="1" inputmode="numeric"></div>
+    <div class="row cheat"><label for="cheat-pot">潜能</label><input id="cheat-pot" type="number" min="0" step="1" inputmode="numeric"></div>
+    <div class="row cheat"><label for="cheat-gold">金钱</label><input id="cheat-gold" type="number" min="0" max="9999999" step="1" inputmode="numeric"></div>
+    <div class="row"><button id="cheat-read">读取当前</button><button id="cheat-add">经验潜能各加一千万</button><button id="cheat-apply">应用修改</button></div>
+    <div class="hint" id="cheat-msg" style="text-align:left;margin:2px 0 12px">修改立即生效。想保留请回到游戏，在菜单「功能」里存档。</div>
+  </div>
   <div class="hint" style="text-align:left;margin:0 0 10px">网页版 __WEB_VERSION__</div>
   <button id="set-close">返回游戏</button>
   <input id="import-file" type="file" accept=".sav,application/octet-stream" style="display:none">

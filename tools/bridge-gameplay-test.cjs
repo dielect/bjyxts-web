@@ -19,7 +19,7 @@ const engines = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.waitForFunction(() => RG.frameCount > 20);
     await page.keyboard.press('Escape', { delay: 80 });
     await page.waitForFunction(() => GameDiagnostics.ruby?.scene === 'Scene_Create');
-    await page.evaluate(() => { __vm.eval('$game_switches[1999]=true; srand(42); $scene=Scene_Map.new'); });
+    await page.evaluate(() => { __vm.eval('srand(42); $scene=Scene_Map.new'); });
     await page.waitForFunction(() => GameDiagnostics.ruby?.scene === 'Scene_Map');
     await page.evaluate(() => {
       let seed = 42, left = 0;

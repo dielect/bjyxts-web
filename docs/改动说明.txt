@@ -6,6 +6,13 @@
 新增类格式：类名/类的作用；方法：“方法名：用途”；属性：“属性：用途”
 行数指原工程（PC V1.21 导出脚本，见 game-src/scripts）中的行号。
 
+2026-10-05 移除前世奇遇；数值修改器改为沙盒模式
+------------------------------------------
+src/game/web_extras.rb/WebCheat/移除前世奇遇（event_list、accept、check_qiyu 及 Scene_Map#update 挂接）；修改器改为沙盒模式：开关 1998 标记沙盒存档，未开启时拒绝修改数值；新增 sandbox 指令与 push_state（通知网页显示“沙盒”标记）。
+src/main.js/setupSettings、ui/设置面板改为先开启沙盒再修改数值；新增 ui.confirm 确认框与 RG.sandboxState。
+static/index.html/设置面板、#sandbox-badge/“数值修改”改为“沙盒模式”；新增左上角“沙盒”标记。
+tools/bridge-gameplay-test.cjs、tools/ios-memory-test.cjs/不再设置前世奇遇用的开关 1999。
+
 2026-10-05 老乞丐、棍棒摊主换上自制外观
 ------------------------------------
 game-src/Graphics/Characters/Npc_OldBeggar.png、Npc_StaffVendor.png/新增/由 assets/npcs/32x32 的素材生成的行走图（同一帧铺成 4×4）。
@@ -187,6 +194,7 @@ src/rgss.js、src/main.js
   浏览器端渲染、输入（键盘、触屏虚拟按键）、音频、存档导入导出、横屏处理和加载界面。
 
 src/game/web_extras.rb（构建时作为脚本「web:扩展」插在 117 - Main 之前载入）
+  （2026-10-05 起前世奇遇已移除、数值修改器改为沙盒模式，见文首；以下为最初版本的说明）
   WebCheat 模块：
     前世奇遇：新角色（经验低于 1000）第一次站在地图上、原有事件都结束后，播放一段剧情，
       提供四个选项：略有小成（经验潜能各 +100000）、登堂入室（各 +1000000）、

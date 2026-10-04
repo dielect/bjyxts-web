@@ -111,7 +111,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
     await page.waitForFunction(() => RG.frameCount > 20);
     await page.keyboard.press('Escape', { delay: 80 });
     await page.waitForFunction(() => __vm.eval('$scene.class.to_s').toString() === 'Scene_Create');
-    await ruby('$game_switches[1999] = true; $scene = Scene_Map.new');
+    await ruby('$scene = Scene_Map.new');
     await page.waitForFunction(() => __vm.eval('$scene.class.to_s').toString() === 'Scene_Map');
     const started = await page.evaluate(() => RG.frameCount);
     await page.waitForFunction(started => RG.frameCount > started + 100, started);
