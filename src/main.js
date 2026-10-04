@@ -311,6 +311,37 @@ function setupSettings() {
     location.reload();
   });
   $('set-reset').addEventListener('click', async () => { location.reload(); });
+  // ---- 数值修改器：指令由 Ruby 端（src/game/web_extras.rb, WebCheat.poll）每 5 帧取走一次
+  const msg = (t) => { $('cheat-msg').textContent = t; };
+  const num = (id) => {
+    const v = $(id).value.trim();
+    if (!/^\d+$/.test(v)) return null;
+    return Math.min(Number(v), 2147483647);
+  };
+  const send = (c) => { if (rg) { rg.cheatQueue = c; msg('处理中…'); } };
+  rg.cheatQueue = '';
+  rg.cheatTake = () => { const c = rg.cheatQueue; rg.cheatQueue = ''; return c; };
+  rg.cheatReport = (r) => {
+    const a = String(r).split('|');
+    if (a[0] !== 'ok') { msg(a.slice(1).join('|') || '失败'); return; }
+    $('cheat-exp').value = a[1]; $('cheat-pot').value = a[2]; $('cheat-gold').value = a[3];
+    msg(rg.cheatApplied ? `已修改「${a[4]}」的数值。想保留请回到游戏，在菜单「功能」里存档。` : `当前角色：${a[4]}`);
+    rg.cheatApplied = false;
+  };
+  $('cheat-read').addEventListener('click', () => send('get'));
+  $('cheat-add').addEventListener('click', () => {
+    const e = num('cheat-exp'), p = num('cheat-pot');
+    if (e === null || p === null) { msg('请先点「读取当前」'); return; }
+    $('cheat-exp').value = e + 10000000; $('cheat-pot').value = p + 10000000;
+    msg('已填入，点「应用修改」生效。');
+  });
+  $('cheat-apply').addEventListener('click', () => {
+    const e = num('cheat-exp'), p = num('cheat-pot'), g = num('cheat-gold');
+    if (e === null || p === null || g === null) { msg('请输入非负整数（可先点「读取当前」）'); return; }
+    rg.cheatApplied = true;
+    send(`set|${e}|${p}|${Math.min(g, 9999999)}`);
+  });
+  $('gear').addEventListener('click', () => send('get'));
   if (localStorage.getItem(SAVE_PREFIX + '#pad') === '0') document.body.classList.remove('pad-on');
 }
 

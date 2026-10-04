@@ -72,6 +72,9 @@ def build_scripts():
             continue
         if num in SKIP:
             continue
+        if num == '117':
+            # 网页版扩展（前世奇遇 / 数值修改器），必须在 Main 之前载入
+            out.append(['web:扩展', open(os.path.join(ROOT, 'src', 'game', 'web_extras.rb'), encoding='utf-8').read()])
         if num == '002':
             code = WEB_NAME_INPUT
         for i, (n, old, new, cnt) in enumerate(PATCHES):

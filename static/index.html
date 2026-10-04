@@ -95,6 +95,10 @@ body.pad-overlay #btns { right: calc(env(safe-area-inset-right, 0px) + 12px); to
 .panel button:active { background: #4a3d24; }
 .row { display: flex; align-items: center; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
 .row label { min-width: 72px; }
+.panel h3.sub { margin: 16px 0 4px; padding-top: 12px; border-top: 1px solid #3a3020; font-size: 16px; color: var(--accent); letter-spacing: 2px; }
+.row.cheat { margin: 6px 0; }
+.row.cheat input { flex: 1; min-width: 140px; font-family: inherit; font-size: 17px; padding: 6px 10px;
+  background: #0d0c09; color: var(--ink); border: 1px solid #6b5833; border-radius: 6px; }
 input[type=range] { flex: 1; min-width: 140px; accent-color: var(--accent); }
 #dlg-text { white-space: pre-wrap; font-size: 18px; line-height: 1.6; margin-bottom: 14px; }
 #dlg-input { width: 100%; font-size: 20px; padding: 8px 10px; margin-bottom: 12px; font-family: inherit;
@@ -173,6 +177,12 @@ body.portrait #rotate { display: flex; }
   <div class="row"><button id="set-full">全屏 / 退出全屏</button><button id="set-pad">显示 / 隐藏虚拟按键</button></div>
   <div class="row"><button id="set-export">导出存档</button><button id="set-import">导入存档</button><button id="set-reset">重新载入游戏</button></div>
   <div class="hint" style="text-align:left;margin:6px 0 10px">存档自动保存在本浏览器中（与 PC 版 Gmud.sav 格式相同，可互相导入）。清除浏览器数据会删除存档，建议定期导出备份。</div>
+  <h3 class="sub">数值修改</h3>
+  <div class="row cheat"><label for="cheat-exp">经验</label><input id="cheat-exp" type="number" min="0" step="1" inputmode="numeric"></div>
+  <div class="row cheat"><label for="cheat-pot">潜能</label><input id="cheat-pot" type="number" min="0" step="1" inputmode="numeric"></div>
+  <div class="row cheat"><label for="cheat-gold">金钱</label><input id="cheat-gold" type="number" min="0" max="9999999" step="1" inputmode="numeric"></div>
+  <div class="row"><button id="cheat-read">读取当前</button><button id="cheat-add">经验潜能各加一千万</button><button id="cheat-apply">应用修改</button></div>
+  <div class="hint" id="cheat-msg" style="text-align:left;margin:2px 0 12px">修改立即生效。想保留请回到游戏，在菜单「功能」里存档。</div>
   <button id="set-close">返回游戏</button>
   <input id="import-file" type="file" accept=".sav,application/octet-stream" style="display:none">
 </div></div>
