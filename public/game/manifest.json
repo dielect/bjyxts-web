@@ -1,5 +1,5 @@
 {
-"wasm": "ruby.wasm?v=482891d013",
+"wasm": "ruby.wasm?v=88af34da0b",
 "scripts": "game/scripts.json?v=c7e34cad86",
 "images": [
 "Graphics/Animations/Hit.png",

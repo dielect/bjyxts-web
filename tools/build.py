@@ -176,6 +176,11 @@ def main():
     wasm_src = os.path.join(ROOT, 'node_modules/@ruby/4.0-wasm-wasi/dist/ruby.wasm')
     subprocess.check_call([sys.executable, os.path.join(ROOT, 'tools/patch_ruby_wasm.py'),
                            wasm_src, os.path.join(OUT, 'ruby.wasm')])
+    # 再把 30KB～100KB 的函数体填充到 110KB，让 iOS 的 JavaScriptCore 跳过 OMG 优化编译
+    # （WebKit bug 304810：Asyncify wasm 的 OMG 编译会把网页进程推到数 GiB，被 iOS 杀掉后自动刷新）。
+    subprocess.check_call([sys.executable, os.path.join(ROOT, 'tools/pad_wasm_omg.py'),
+                           os.path.join(OUT, 'ruby.wasm'), os.path.join(OUT, 'ruby.wasm')],
+                          stdout=subprocess.DEVNULL)
     # ruby.wasm / scripts.json 按内容哈希加版本参数，更新后浏览器（尤其 iOS Safari）不会继续用旧缓存
     def _ver(path):
         import hashlib

@@ -1,6 +1,6 @@
 // Loaded before app.js, so startup errors can be exported without the game VM.
 const PREFIX = 'bjyxts121:#diagnostics:v1:';
-const BUILD = '2026-10-04-bridge1';
+const BUILD = '2026-10-04-omgpad1';
 const MAX_SESSIONS = 4;
 const MAX_EVENTS = 120;
 const MAX_CHARS = 48000;

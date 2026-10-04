@@ -10,6 +10,7 @@
 ----------------------------------------------------------------------
 package.json/依赖/改用 @ruby/4.0-wasm-wasi 2.10.1（原 3.4 版每次 raise/break 漏 C 栈，长时间运行后栈耗尽）。
 tools/patch_ruby_wasm.py/新增/对 4.0 的 ruby.wasm 打二进制补丁：关闭启动时 256MB 形状表预分配，校验哈希与指令序列。
+tools/pad_wasm_omg.py/新增/把 ruby.wasm 中 30KB～100KB 的函数体填充到 110KB（插入被 br 跳过的 nop，不改变行为），避开 iOS 26 WebKit 的 wasm 优化编译内存暴涨（WebKit bug 304810），解决 iPhone 上运行一会儿就自动刷新的问题。
 tools/build.py/build/复制 ruby.wasm 时自动打补丁；manifest 中 ruby.wasm、scripts.json 地址加内容哈希版本号。
 src/main.js/启动流程/manifest 每次校验不走缓存；scripts.json 按 manifest 地址加载；新增不重入调试通道 window.__rb。
 src/game/web_extras.rb/Graphics 钩子/web_dev_poll：在游戏帧内执行 __rb 队列中的调试代码。
