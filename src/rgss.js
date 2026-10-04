@@ -103,8 +103,15 @@ export class RGRuntime {
   }
   bmpW(id) { const b = this._b(id); return b ? b.c.width : 0; }
   bmpH(id) { const b = this._b(id); return b ? b.c.height : 0; }
-  bmpDispose(id) { this.bmps.delete(id); }
-  bmpDisposeList(s) { for (const v of String(s).split(',')) if (v) this.bmps.delete(+v); }
+  bmpDispose(id) {
+    const b = this._b(id);
+    if (!b) return;
+    // Release the pixel buffer now; dropping references alone can defer this on iOS.
+    b.c.width = 0;
+    b.c.height = 0;
+    this.bmps.delete(id);
+  }
+  bmpDisposeList(s) { for (const v of String(s).split(',')) if (v) this.bmpDispose(+v); }
   _touch(b) { b.ver++; b.at = null; }
   bmpBlt(dst, x, y, src, sx, sy, sw, sh, op) {
     const d = this._b(dst), s = this._b(src);
@@ -278,6 +285,7 @@ export class RGRuntime {
   // ------------------------------------------------------------------ tilemaps
   tmConfig(id, tileset, autotiles, xs, ys, zs, data, prio) {
     const t = this.tilemaps.get(id) || {};
+    this._releaseTileCache(t);
     t.tileset = tileset;
     t.autotiles = String(autotiles).split(',').map(Number);
     t.xs = xs; t.ys = ys; t.zs = zs;
@@ -286,7 +294,15 @@ export class RGRuntime {
     t.cache = new Map();
     this.tilemaps.set(id, t);
   }
-  tmDispose(id) { this.tilemaps.delete(id); }
+  _releaseTileCache(t) {
+    if (!t || !t.cache) return;
+    for (const c of t.cache.values()) { c.width = 0; c.height = 0; }
+    t.cache.clear();
+  }
+  tmDispose(id) {
+    this._releaseTileCache(this.tilemaps.get(id));
+    this.tilemaps.delete(id);
+  }
   _tileCanvas(t, tid, frame) {
     // Returns [canvas, sx, sy] for a 32x32 tile.
     if (tid >= 384) {

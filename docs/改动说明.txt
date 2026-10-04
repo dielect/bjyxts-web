@@ -6,6 +6,15 @@
 新增类格式：类名/类的作用；方法：“方法名：用途”；属性：“属性：用途”
 行数指原工程（PC V1.21 导出脚本，见 game-src/scripts）中的行号。
 
+2026-10-04 iOS 内存修复补充（以下行数为修改前导出脚本行号）
+----------------------------------------------------------
+090 - Scene_Map/Scene_Map/main、update、display_mapname/11、55、240/地图名及平安镇背景位图在场景内复用；事件更新期间隐藏，在下一帧恢复显示；地图变化时重建，main 的 ensure 中释放，避免每帧创建大 Canvas。
+090 - Scene_Map/Scene_Map/dispose_mapname/新增方法/幂等释放场景独占的地图名 Bitmap 和 Sprite，不释放共享缓存位图。
+005 - NPC_Name/Draw_event_name/draw、clear、dispose/16、26、31/保存并释放自有 Viewport 和 Bitmap；重绘前清理旧资源；clear 使用 Sprite.bitmap，修复对不存在的 contents 的调用。
+src/rgss.js/RGRuntime/bmpDispose、bmpDisposeList、tmConfig、tmDispose/106、107、279、289/释放独占 Canvas 时将宽高置零；图块缓存重配和删除时同样清理像素缓冲。
+src/rgss.js/RGRuntime/_releaseTileCache/新增方法/统一释放图块缓存画布，支持重复清理。
+tools/ios-memory-test.cjs/新增回归测试/检查 400 帧位图复用、地图变化、场景退出和异常路径、100 次 NPC 生命周期、Canvas 和图块缓存释放以及游戏启动。
+
 一、修改的原有脚本
 ------------------
 

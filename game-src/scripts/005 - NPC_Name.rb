@@ -14,8 +14,9 @@ class Draw_event_name
     end
   end
   def draw
-    v=Viewport.new(80,280,@name.size*8,24)
-    @n=Sprite.new(v)
+    dispose
+    @viewport=Viewport.new(80,280,@name.size*8,24)
+    @n=Sprite.new(@viewport)
     @n.bitmap = Bitmap.new(@name.size*8, 24)
     color=Color.new(144,176,87)
     temp_rect=@n.bitmap.rect
@@ -25,13 +26,16 @@ class Draw_event_name
   end
   def clear
     if @n!=nil
-      @n.contents.clear
+      @n.bitmap.clear if @n.bitmap && !@n.bitmap.disposed?
     end
   end
   def dispose
     if @n != nil 
+      @n.bitmap.dispose if @n.bitmap && !@n.bitmap.disposed?
       @n.dispose
     end
     @n=nil
+    @viewport.dispose if @viewport
+    @viewport=nil
   end
 end

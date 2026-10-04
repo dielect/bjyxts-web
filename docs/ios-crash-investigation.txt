@@ -1,0 +1,72 @@
+iOS 页面崩溃排查（2026-10-04）
+基线提交：cacf522
+初次排查仅诊断；后续已完成下方“修复验证”所列修改并重建 public 部署产物。
+
+结论
+最值得优先修复的是 Canvas 分配/释放策略，以及 NPC 名称 Viewport 的确定性泄漏。
+在 Windows Edge/Chromium 中复现了资源问题，未在 iPhone 真机上复现进程崩溃。
+以下 MiB 数字按 width * height * 4 / 1048576 计算，是仍登记位图的 RGBA 像素预算，
+不等于浏览器实际 RSS/GPU 内存；已经从 Map 删除但尚未被浏览器回收的 Canvas 不计入。
+
+1. 平安镇每帧创建 640×480 位图（高优先级）
+game-src/scripts/090 - Scene_Map.rb
+main 每帧调用 display_mapname；update 只调用 @name.dispose。
+display_mapname 在 map_id == 2（平安镇）时创建 Bitmap.new(640,480)。
+src/ruby/rgss_core.rb 中 Sprite#dispose 只注销 Sprite，不释放它的 Bitmap。
+Bitmap 依靠 Ruby finalizer 排队，之后 Graphics.update 的 flush_dispose 才释放 JS 登记。
+40 FPS 下该路径每秒分配约 46.875 MiB 像素，Ruby GC 无法按这些外部像素内存及时触发。
+
+验证：原版 public/app.js + scripts.json，仅从 scripts.json 中移除 117 Main，
+加载真实数据库和游戏类，初始化游戏对象及地图 2，再执行真实 display_mapname 方法。
+测试 A：200 次创建/释放 Sprite 的同步压力测试，位图预算从 1.23 MiB 增到 235.61 MiB；
+显式 GC.start + RGWeb.flush_dispose 后降至 3.57 MiB。此测试不代表正常游戏帧时序。
+测试 B：每次创建后调用 Graphics.update，再释放 Sprite，40 FPS 共 400 帧。
+每 100 帧采样，累计峰值分别为 70.37、125.45、148.89、148.89 MiB；
+结束时仍登记 111 张位图、128.96 MiB。这是隔离真实方法的逐帧测试，并非完整玩法压力测试。
+建议：地图名/平安镇背景 Sprite 和 Bitmap 在场景内复用，只在地图变化时重绘；
+场景退出时显式释放自有 Bitmap 和 Sprite。保留当前绘制顺序、层级及过渡效果。
+不要把所有 Sprite#dispose 都改为释放 Bitmap，因为 RPG::Cache 中存在共享位图。
+
+2. Canvas 释放没有主动缩小像素缓冲（高优先级）
+src/rgss.js: bmpDispose、bmpDisposeList 只做 Map.delete；tmDispose 同样只删除登记。
+删除引用不保证立即归还 Canvas 像素内存，可能在频繁分配时叠加峰值。
+建议：释放独占的 Canvas 时先将 width、height 置零再删除登记；
+清理 tilemap cache 的旧 Canvas；对 getContext('2d') 返回 null 做明确错误处理。
+WebKit 历史问题记录：https://bugs.webkit.org/show_bug.cgi?id=195325
+该记录支持 Safari Canvas 延迟回收风险，但不能据此断言所有当前 iOS 的固定内存上限。
+
+3. NPC 名称 Viewport 泄漏（确定性复现）
+game-src/scripts/005 - NPC_Name.rb: Draw_event_name#draw 新建 Viewport，
+但 #dispose 只释放 Sprite，没有释放 Viewport 或显式释放自有 Bitmap。
+src/ruby/rgss_core.rb: RGWeb.register 把 Viewport 强引用存入 @elements，
+所以 Ruby GC 也不能回收这些未注销的 Viewport。
+验证：100 次 Draw_event_name.new / dispose，GC 后 RGWeb.elements 仍多出 100 个 Viewport。
+建议：保留 Viewport 引用，在 dispose 中释放自有 Bitmap、Sprite、Viewport，并保证幂等。
+
+排除/边界
+- 全部预加载图片的 RGBA 像素预算约 5.67 MiB，不支持把大图片直接认定为首要原因。
+- 序幕静置 30 秒，登记位图保持 3 张/3.03 MiB；WASM 线性内存约 59.75 MiB 后趋稳。
+- 普通 Window_Base#dispose 已显式释放 contents，不能仅凭基类 Window 中的 if false 判定所有窗口泄漏。
+- 未收到发生崩溃的 iPhone 型号、iOS 版本、浏览器、操作步骤及日志；没有真机崩溃结论。
+
+下一步验证
+先修复上述生命周期问题，再对比平安镇 10 分钟、NPC 对话 100 次、菜单和战斗切换的资源曲线。
+真机上区分游戏“运行出错”弹层和 Safari“网页出现问题”/自动刷新；
+通过 Safari Web Inspector 或宿主 App 的 WebContent 终止记录确认是否为内存压力。
+
+修复验证（2026-10-04）
+- Scene_Map 复用地图名/背景位图，在 update 隐藏，在 display_mapname 恢复可见；
+  切换地图时重建，main 的 ensure 中释放独占资源。
+- Draw_event_name 保留并释放 Viewport 和 Bitmap，重绘前清理，重复 dispose 安全；
+  顺便修正 clear 调用不存在的 Sprite.contents 的问题。
+- bmpDispose/bmpDisposeList 和 tilemap 缓存清理将独占画布尺寸置零后删除登记。
+- 未修改 Sprite#dispose 的共享位图语义，未更改存档格式。
+- 原逐帧隔离测试 400 帧：登记位图像素预算峰值由 148.89 MiB 降至 2.40 MiB；
+  仅创建一张地图名位图，400 帧内位图数和累计分配 ID 都保持不变。
+- 100 次 NPC 创建/重绘/clear/双重 dispose，无需 GC 即回到原始位图及元素数量。
+- 换地图、场景正常/异常退出、重复释放、图块缓存重建和删除检查通过。
+- 重建 public/app.js、public/game/scripts.json，并同步 public/改动说明.txt。
+- 复现测试：先用 python -m http.server 8090 --bind 127.0.0.1 --directory public 启动服务，
+  再运行 node tools/ios-memory-test.cjs。需要 Playwright；可通过 PLAYWRIGHT_MODULE 指定已有安装，
+  BROWSER_CHANNEL=msedge 可使用本机 Edge，默认使用 Playwright Chromium。
+- 本次通过 Windows Edge/Chromium 验证资源生命周期；仍需 iPhone 真机确认崩溃改善。

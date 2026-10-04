@@ -41,6 +41,8 @@ class Scene_Map
       Graphics.transition
       Graphics.freeze
     end
+  ensure
+    dispose_mapname
   end
   #--------------------------------------------------------------------------
   # ● 刷新画面
@@ -52,7 +54,8 @@ class Scene_Map
       # (本更新顺序不会在满足事件的执行条件下成为给予角色瞬间移动
       #  的机会的重要因素)
       $game_map.update
-      @name.dispose
+      # 事件中的嵌套 Graphics.update 不显示地图名，但保留位图供下一帧复用。
+      @name.visible = false if @name
       $game_system.map_interpreter.update
       $game_player.update
       # 系统 (计时器)、画面刷新
@@ -241,6 +244,13 @@ class Scene_Map
   #显示地图名
   def display_mapname
     id=$game_map.map_id
+    key = [id, $data_mapinfos[id].name]
+    if @name && !@name.disposed? && @mapname_key == key
+      @name.visible = true
+      return
+    end
+    dispose_mapname
+    @mapname_key = key
     if id !=2
       n=$data_mapinfos[id].name
       @name = Sprite.new
@@ -257,6 +267,15 @@ class Scene_Map
       temp_rect=@name.bitmap.rect
       @name.bitmap.fill_rect(temp_rect,color)
     end
+  end
+  # 只释放此场景独占的地图名位图，不影响 RPG::Cache 的共享资源。
+  def dispose_mapname
+    if @name
+      @name.bitmap.dispose if @name.bitmap && !@name.bitmap.disposed?
+      @name.dispose
+    end
+    @name = nil
+    @mapname_key = nil
   end
   #--------------------------------------------------------------------------
   # ● 主角的场所移动
