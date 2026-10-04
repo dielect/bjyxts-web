@@ -15,7 +15,7 @@
 #        200 级“万法归宗”：化用的内力消耗减半。
 #  打坐时内力修为的上限由启用内功的等级决定（原版规则），所以练小无相功本身就在扩充内力。
 #
-#  获取：平安镇西郊角落的石刻残局“珍珑棋局”（致敬《天龙八部》虚竹破局得逍遥派传承）。
+#  获取：平安镇西郊角落石桌上的“珍珑棋局”（致敬《天龙八部》虚竹破局得逍遥派传承）。
 #        选对“自填一眼”（先舍后得）即得“无相残卷”。读残卷与原版秘籍规则相同：要识字，
 #        只有没拜师或逍遥派能读，读后成为逍遥派，最高学到 150 级，再往上靠练功。
 #        提示：棋局旁刻着“置之死地而后生”，西郊流氓头也会说起那局怪棋。
@@ -48,12 +48,14 @@ WebMod.common_event 26, '使用-无相残卷' do |c|
 end
 
 WebMod.edit 12 do |m|
-  # 西郊角落的石桌（图块 643 桌子，不可通行，所以能站在旁边按确定键调查；
-  # 可通行的图块只有站在上面才能触发，玩家不容易发现）
-  m.event 12, 10, name: '珍珑棋局', tile: 643 do |c|
+  # 西郊角落的石桌。外观：assets/props/go/stone-table-32.png → Prop_StoneTable（行走图事件不可通行，
+  # 站在旁边按确定键就能调查）；调查时在画面上方显示棋局近景 assets/props/go/zhenlong-board-288.png
+  # （复制为 Graphics/Pictures/Go_Zhenlong.png）
+  m.event 12, 10, name: '珍珑棋局', sprite: 'Prop_StoneTable' do |c|
     c.if_switch(106) do
       c.text '石桌上的残局已被你破解，黑白棋子散落一旁。'
     end.else do
+      c.show_picture 1, 'Go_Zhenlong'
       c.text '角落的石桌上刻着一局残棋，黑白纠缠，杀气森然。'
       c.text '石桌边缘刻着两行小字：“破此局者，得我逍遥。”“置之死地而后生。”'
       c.choices(%w[落子天元 抢占边角 自填一眼 不下了]) do |i|
@@ -71,6 +73,7 @@ WebMod.edit 12 do |m|
           c.text '得到了无相残卷！'
         end
       end
+      c.erase_picture 1
     end
   end
 

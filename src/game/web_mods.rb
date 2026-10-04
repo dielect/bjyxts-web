@@ -335,13 +335,21 @@ module WebMod
 
     # 通用事件。块参数是 Commands，用来写指令；返回 RPG::Event。
     #   trigger：0 确定键  1 主角接触  2 事件接触  3 自动  4 并行
-    def event(x, y, name: '', tile: 0, trigger: 0, through: false, &block)
+    #   sprite：自制外观（Graphics/Characters 里的行走图），代替 tile；行走图事件不可通行，站在旁边就能调查
+    def event(x, y, name: '', tile: 0, sprite: nil, trigger: 0, through: false, &block)
       check_xy(x, y, name.empty? ? 'event' : name)
       e = RPG::Event.new(x, y)
       e.id = @next_id
       e.name = name.empty? ? format('EV%03d', @next_id) : name
       page = e.pages[0]
       page.graphic.tile_id = tile
+      if sprite
+        page.graphic.tile_id = 0
+        page.graphic.character_name = sprite
+        page.graphic.direction = 2
+        page.graphic.pattern = 0
+        page.direction_fix = true                   # 各帧相同，转向也没有意义
+      end
       page.trigger = trigger
       page.through = through
       c = Commands.new
@@ -406,7 +414,7 @@ module WebMod
       labels = %w[交谈 查看]
       labels << '战斗' if fight
       labels << '交易' if shop
-      e = event(x, y, name: name, tile: tile) do |c|
+      e = event(x, y, name: name, tile: tile, sprite: sprite) do |c|
         c.script '@s=Draw_event_name.new'
         c.choices(labels) do |i|
           case labels[i]
@@ -417,14 +425,6 @@ module WebMod
           end
         end
         c.script '@s.dispose'
-      end
-      if sprite
-        g = e.pages[0].graphic
-        g.tile_id = 0
-        g.character_name = sprite
-        g.direction = 2
-        g.pattern = 0
-        e.pages[0].direction_fix = true            # 各帧相同，转向也没有意义
       end
       add_corpse_page(e, fight[:corpse] || 508) if fight
       e
@@ -543,6 +543,16 @@ module WebMod
 
     def wait(frames)
       cmd(106, frames)
+    end
+
+    # 显示图片（Graphics/Pictures 里的文件）。center 为 true 时 x、y 是图片中心。
+    # 游戏画面 640×480，底部对话框约占 160，所以对话时图片放在上方，例如 288×288 的图中心放在 (320, 168)
+    def show_picture(number, name, x: 320, y: 168, center: true, opacity: 255)
+      cmd(231, number, name, center ? 1 : 0, 0, x, y, 100, 100, opacity, 0)
+    end
+
+    def erase_picture(number)
+      cmd(235, number)
     end
 
     # 物品增减：kind 为 :item / :weapon / :armor

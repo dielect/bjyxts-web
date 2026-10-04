@@ -1,6 +1,6 @@
 {
 "wasm": "ruby.wasm?v=88af34da0b",
-"scripts": "game/scripts.json?v=401f52123c",
+"scripts": "game/scripts.json?v=68d7474a07",
 "images": [
 "Graphics/Animations/Hit.png",
 "Graphics/Battlebacks/BG.png",
@@ -77,12 +77,14 @@
 "Graphics/Characters/MainChar_Tile.png",
 "Graphics/Characters/Npc_OldBeggar.png",
 "Graphics/Characters/Npc_StaffVendor.png",
+"Graphics/Characters/Prop_StoneTable.png",
 "Graphics/Icons/051-Item_unequip.png",
 "Graphics/Icons/052-Item_equip.png",
 "Graphics/Pictures/BG.png",
 "Graphics/Pictures/Dir.png",
 "Graphics/Pictures/Down.png",
 "Graphics/Pictures/FP.png",
+"Graphics/Pictures/Go_Zhenlong.png",
 "Graphics/Pictures/HP.png",
 "Graphics/Pictures/Hit.png",
 "Graphics/Pictures/Left.png",
@@ -198,5 +200,5 @@
 "Data/Troops.rxdata",
 "Data/Weapons.rxdata"
 ],
-"version": "1.0.0+202610050128"
+"version": "1.0.0+202610050140"
 }

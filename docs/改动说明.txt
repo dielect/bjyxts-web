@@ -6,6 +6,14 @@
 新增类格式：类名/类的作用；方法：“方法名：用途”；属性：“属性：用途”
 行数指原工程（PC V1.21 导出脚本，见 game-src/scripts）中的行号。
 
+2026-10-05 珍珑棋局换上自制素材
+----------------------------
+game-src/Graphics/Characters/Prop_StoneTable.png/新增/石桌行走图，由 assets/props/go/stone-table-32.png 生成。
+game-src/Graphics/Pictures/Go_Zhenlong.png/新增/棋局近景，即 assets/props/go/zhenlong-board-288.png。
+src/game/mods/030_小无相功.rb/珍珑棋局/石桌改用自制外观；调查时在画面上方显示棋局近景，做出选择后消除。
+src/game/web_mods.rb/Builder#event、Commands/event 新增 sprite 参数；新增 show_picture、erase_picture（事件指令 231、235）。
+tools/make_npc_sprite.py/新增 --no-battler 选项，用于物件。
+
 2026-10-05 小无相功的获取；删除存档重新开始
 ----------------------------------------
 src/game/mods/030_小无相功.rb/新增/物品 24 无相残卷、公共事件 26 使用-无相残卷（规则同原版秘籍）、逍遥派秘籍 6（小无相功 150 级）；平安镇西郊石桌“珍珑棋局”（开关 106）；西郊流氓头的台词移到此文件并加一句提示。
