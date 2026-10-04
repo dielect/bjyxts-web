@@ -1,0 +1,13 @@
+# 32×32 NPC 素材生成记录
+
+使用内置 imagegen 简化原全身图，然后按用户要求进行精确尺寸导出。
+
+## 老叫花
+
+Use case: precise-object-edit. Convert the full-body character in input 1 into an EXTREMELY SIMPLE TINY game sprite, matching input 2's native 32x32 logical pixel scale and compact big-head short-body proportions. Keep the subject's identifying clothes, prop and age. SQUARE composition for a 32x32 pixel canvas: head 10 pixels tall, torso 10 pixels tall, legs and BOTH shoes 8 pixels tall, 1 pixel transparent margin at top and bottom. Entire body and staff are inside the frame. Enlarge the 32x32 pixel grid as sharp big square blocks if needed. Each eye is a single black pixel, mouth one or two pixels, hands two pixels wide, robe folds only 2 or 3 big black shapes. ZERO fine illustration detail. Palette only OPAQUE BLACK #000000 and FLAT OLIVE GREEN #90B057 for the character, actual alpha transparency outside. No glow, gradient, dithering, shadow, halo, background, text, border, grid lines, sprite sheet, bust or cropped feet. Do not preserve realistic tall adult proportions from input 1: compact full-body 32x32 game sprite proportions are REQUIRED.
+Subject: the old beggar. Messy short tuft of hair, a small pointed long beard, slightly stooped, ragged short robe, cloth shoes, bamboo walking staff at his side. Clearly elderly; both feet visible and distinct from beard and robe.
+
+## 棍棒摊主
+
+Use case: precise-object-edit. Convert the full-body character in input 1 into an EXTREMELY SIMPLE TINY game sprite, matching input 2's native 32x32 logical pixel scale and compact big-head short-body proportions. Keep the subject's identifying clothes, prop and age. SQUARE composition for a 32x32 pixel canvas: head 10 pixels tall, torso 10 pixels tall, legs and BOTH shoes 8 pixels tall, 1 pixel transparent margin at top and bottom. Entire body and staff are inside the frame. Enlarge the 32x32 pixel grid as sharp big square blocks if needed. Each eye is a single black pixel, mouth one or two pixels, hands two pixels wide, robe folds only 2 or 3 big black shapes. ZERO fine illustration detail. Palette only OPAQUE BLACK #000000 and FLAT OLIVE GREEN #90B057 for the character, actual alpha transparency outside. No glow, gradient, dithering, shadow, halo, background, text, border, grid lines, sprite sheet, bust or cropped feet. Do not preserve realistic tall adult proportions from input 1: compact full-body 32x32 game sprite proportions are REQUIRED.
+Subject: stocky middle-aged staff vendor. Headscarf, tiny moustache, broad torso, rolled sleeves, plain tunic, loose trousers, cloth shoes, holds one plain straight practice staff. Friendly and sturdy, both feet visible. Remove the extra sticks behind the shoulder to keep the small silhouette clear.
