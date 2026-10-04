@@ -16,6 +16,7 @@
 | `public/` | **可部署版**，整个目录上传到任意静态网站即可运行 |
 | `src/` | 网页运行环境源码（JS 渲染、输入、音频，Ruby 端 RGSS1 实现和兼容层） |
 | `static/` | 页面外壳 `index.html`、图标、PWA 清单 |
+| `assets/npcs/` | [NPC 备用全身素材](assets/npcs/README.md)：老叫花、棍棒摊主，供后续使用，尚未接入游戏 |
 | `game-src/scripts/` | 从 `Scripts.rxdata` 导出的原版游戏脚本（**改游戏内容就改这里**） |
 | `game-src/Data/`、`game-src/Graphics/` | 从 `Gmud.rgssad` 解包的数据库、地图和图片 |
 | `game-src/Audio/` | 原版音乐与音效 |
