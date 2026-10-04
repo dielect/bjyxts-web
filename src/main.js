@@ -1,5 +1,6 @@
 import { WASI, File, Directory, PreopenDirectory, OpenFile, ConsoleStdout } from '@bjorn3/browser_wasi_shim';
 import { RubyVM } from '@ruby/wasm-wasi';
+import { installRubyBridgeFix } from './ruby-wasm-bridge.js';
 import { RGRuntime } from './rgss.js';
 import RB_CORE from './ruby/rgss_core.rb';
 import RB_KERNEL from './ruby/rgss_kernel.rb';
@@ -412,6 +413,7 @@ async function main() {
   window.__gameRoot = preopen.dir;
   const wasi = new WASI(['ruby'], [], fds, { debug: false });
   const { vm, instance } = await RubyVM.instantiateModule({ module: mod, wasip1: wasi });
+  const bridgeSnapshot = installRubyBridgeFix(vm);
   window.__vm = vm;
 
   rg = new RGRuntime({
@@ -423,7 +425,7 @@ async function main() {
     ui,
   });
   window.RG = rg;
-  diagnostics?.attach(rg, instance.exports.memory);
+  diagnostics?.attach(rg, instance.exports.memory, bridgeSnapshot);
   window.RGScripts = scripts;
   rg.onExit = () => {
     diagnostics?.phase('ended');

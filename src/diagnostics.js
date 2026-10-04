@@ -1,6 +1,6 @@
 // Loaded before app.js, so startup errors can be exported without the game VM.
 const PREFIX = 'bjyxts121:#diagnostics:v1:';
-const BUILD = '2026-10-04-log1';
+const BUILD = '2026-10-04-bridge1';
 const MAX_SESSIONS = 4;
 const MAX_EVENTS = 120;
 const MAX_CHARS = 48000;
@@ -170,9 +170,10 @@ class Diagnostics {
     this.record('input', { action: clip(action) });
   }
 
-  attach(runtime, memory) {
+  attach(runtime, memory, bridgeSnapshot) {
     this.runtime = runtime;
     this.memory = memory;
+    this.bridgeSnapshot = bridgeSnapshot;
     runtime.diagnosticState = (scene, map, x, y, elements, gc, liveSlots) => {
       const changed = !this.ruby || scene !== this.ruby.scene || map !== this.ruby.map;
       this.ruby = { at: Date.now(), scene: clip(scene), map, x, y, elements, gc, liveSlots };
@@ -209,6 +210,7 @@ class Diagnostics {
         bitmaps: r.bmps.size, bitmapAllocations: r.nextBmp - 1, tilemaps: r.tilemaps.size,
         canvasPixelBytes: pixels * 4, largestBitmapPixelBytes: largestPixels * 4,
         wasmBytes: this.memory?.buffer.byteLength ?? null,
+        rubyBridge: this.bridgeSnapshot?.() ?? null,
         jsHeapBytes: performance.memory?.usedJSHeapSize ?? null,
         activeSounds: r.audio.seActive.size, audioState: r.audio.ctx?.state || 'not-started', ruby: this.ruby };
     } catch (e) { return { snapshotError: errorText(e) }; }

@@ -6,6 +6,16 @@
 新增类格式：类名/类的作用；方法：“方法名：用途”；属性：“属性：用途”
 行数指原工程（PC V1.21 导出脚本，见 game-src/scripts）中的行号。
 
+2026-10-04 Ruby/WASM 桥接内存修复补充
+----------------------------------
+src/ruby-wasm-bridge.js/新增适配器/installRubyBridgeFix/全文件/对 2.10.1 legacy ABI 的临时输入句柄按调用作用域归还，输入参数缓冲区按嵌套深度复用；保留返回值、嵌套调用保护及异常传播。
+src/main.js/启动流程/虚拟机初始化后/安装桥接补丁并接入诊断采样。
+src/diagnostics.js/Diagnostics/attach、snapshot/记录桥接句柄与参数缓冲区摘要，诊断版本升级为 2026-10-04-bridge1。
+package.json、package-lock.json/依赖版本/固定 Ruby 两项依赖为 2.10.1，升级时必须重新验证 ABI 所有权。
+static/index.html/脚本版本参数/更新浏览器加载版本；public/ 同步构建产物。
+tools/ruby-bridge-test.mjs、tools/bridge-gameplay-test.cjs/新增回归测试/验证 20 万次 await、UTF-8、嵌套调用与异常、浏览器随机操作及存读档。
+详细原因与验证边界见 docs/wasm-bridge-fix.txt；未修改存档格式、未加入自动刷新。
+
 2026-10-04 iOS 内存修复补充（以下行数为修改前导出脚本行号）
 ----------------------------------------------------------
 090 - Scene_Map/Scene_Map/main、update、display_mapname/11、55、240/地图名及平安镇背景位图在场景内复用；事件更新期间隐藏，在下一帧恢复显示；地图变化时重建，main 的 ensure 中释放，避免每帧创建大 Canvas。

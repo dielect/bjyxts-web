@@ -24,6 +24,8 @@ const prefix = 'bjyxts121:#diagnostics:v1:';
     await page.waitForFunction(() => GameDiagnostics.session.events.some(e => e.type === 'heartbeat'));
     const snapshot = await page.evaluate(() => GameDiagnostics.snapshot());
     assert(snapshot.wasmBytes > 0 && snapshot.canvasPixelBytes > 0);
+    assert.equal(snapshot.rubyBridge.abi, 'legacy-2.10.1');
+    assert.equal(snapshot.rubyBridge.handles, 0);
     assert.equal(snapshot.ruby.scene, 'Scene_Begin');
     const oldID = await page.evaluate(() => GameDiagnostics.session.id);
     await page.evaluate(() => {

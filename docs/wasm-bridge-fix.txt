@@ -1,0 +1,74 @@
+Ruby/WASM 桥接内存修复（2026-10-04-bridge1）
+
+定位
+- 使用仓库实际 public/ruby.wasm（Ruby 3.4.1、js gem 2.10.1）和
+  @ruby/wasm-wasi 2.10.1，移除游戏脚本后仍能复现重复 await 的内存增长。
+- legacy JS binding 的 rbFuncallvProtect、rstringPtr 向句柄表插入输入对象的
+  clone，但调用返回后没有移除这些临时借用。句柄表持续强引用 Ruby 包装对象，
+  因而 JS FinalizationRegistry 和 Ruby GC 都无法释放它们。
+- rbEvalStringProtect、rbIntern、rbFuncallvProtect 的输入字符串/参数数组还会
+  反复 cabi_realloc；对应 C 入口读取这些参数，却不负责释放输入缓冲区。
+- 这不是已经证实的“Asyncify 每帧固定泄漏 800B”。借用对象和参数存储未清理
+  足以在没有游戏脚本的实验中复现增长；不能据此确定用户两次 iOS 短时重载的原因。
+
+实现
+- src/ruby-wasm-bridge.js 在 RubyVM 初始化后安装兼容补丁，不改 node_modules
+  或 WASM 二进制，不替换 Promise/Fiber 调度器。
+- 保留 SDK 原有进入 VM、嵌套调用/GC 保护与返回值处理。每次同步 ABI 调用返回后，
+  只移除该调用由 JS 借出的输入句柄，并归还对应 clone；不释放 WASM 创建的返回句柄。
+- 输入参数缓冲区按嵌套深度隔离复用；UTF-8 编码扩容通过原 cabi_realloc 完成，
+  旧缓冲区由 realloc 处理。保留容量取决于该深度最大参数大小，不随帧数增长。
+- 异常路径也退出作用域；同一个 VM 重复安装返回同一个采样函数。
+- Ruby 两项依赖固定为 2.10.1，package-lock 保持现有版本与完整性校验。
+  升级 SDK/WASM 时必须重新检查 legacy ABI 的输入所有权；不要直接沿用这个补丁。
+  尤其不能把这套释放规则套用到已经自行释放输入的 ABI 或 component model。
+- 修复位于本项目适配层。私有字段 _exports、_resource0_slab 是本补丁的版本依赖，
+  入口会检查形状，不支持时给出启动错误。生产运行不会强制 GC。
+
+诊断
+- 日志版本与 HTML 资源参数升级到 2026-10-04-bridge1 / 20261004-bridge1。
+- 快照增加 rubyBridge：abi、handles、argumentBufferBytes、callDepth。
+  正常 JS 定时快照发生在同步 VM 调用之外，handles 和 callDepth 应为 0。
+- argumentBufferBytes 只统计补丁复用的输入缓冲区；wasmBytes 是线性内存容量，
+  两者都不是 iOS 进程的总内存。没有增加自动刷新或自动覆盖存档。
+
+验证与复现
+1. node --expose-gc tools/ruby-bridge-test.mjs --baseline
+   使用相同 WASM，不安装补丁。10 万次 await 后约 126.94 MiB，
+   回调 Proc 约 100014 个，显式运行两边 GC 后仍持续保留。
+2. node --expose-gc tools/ruby-bridge-test.mjs
+   补丁启用后 20 万次 await 通过，约 8 万次后线性内存稳定在 62.31 MiB；
+   末轮借用句柄 0、Proc 0。早一轮观测为 60.69 MiB，GC 调度与预热会影响高水位。
+   GC 只用于实验区分永久引用与回收时机。
+   同时验证：返回对象跨 GC 存活、多字节/长字符串、嵌套调用、Ruby 异常、
+   Promise 拒绝、两个交错等待的 Fiber 的参数/结果隔离、重复安装、异常后继续执行。
+   参数缓冲区峰值约 313 KiB，
+   包含测试专门构造的长字符串。
+3. 服务 public/ 后运行 tools/diagnostics-test.cjs、tools/ios-memory-test.cjs。
+   诊断导出/故障恢复、400 帧地图名复用、100 次 NPC 生命周期、图块释放、
+   正常开场/建角/地图均通过。
+4. node tools/bridge-gameplay-test.cjs
+   默认 Chromium，120 秒种子 42 的方向/确认/取消输入，以及存档后重新载入。
+   Chromium 和桌面 WebKit 均通过，120 秒分别约 73.81 / 74.00 MiB。
+   完整游戏存在场景分配与缓存，不能把短时容量上升都判成永久泄漏。
+   可设 BROWSER_ENGINE=webkit，或 BROWSER_CHANNEL=msedge 使用系统 Edge；
+   PLAYWRIGHT_MODULE 可指定已安装的 Playwright 路径。
+   GAMEPLAY_SECONDS 可设时长，IDLE_SECONDS 可追加读档后的静置观察。
+5. GAMEPLAY_SECONDS=0、IDLE_SECONDS=240 的 Chromium 实际地图静置实验：
+   30 秒约 58.69 MiB；60、90、120、150、180、210、240 秒均为 59.06 MiB。
+   该浏览器实验没有强制 GC，末轮约 12925 帧，临时句柄始终为 0。
+
+范围与剩余问题
+- 上述结果来自 Windows Node/Chromium/WebKit。桌面 WebKit 不等于 iPhone 真机。
+- 用户提供的两次日志最后 WASM 容量约 59.5 / 61.1 MiB，在开局约二十秒中断。
+  当前补丁解决已复现的累积问题，不把这两次重载直接归因于同一个问题。
+- 桥接缓冲区允许扩容，不能靠硬性限制 WASM 容量保证设备不被系统终止。
+- 没有复现报告所说的同种子同帧 SystemStackError；原复现脚本与种子未入库。
+  当前回归覆盖自己的种子和路径，不代表所有事件链均无栈溢出。
+- 没有采用“自动存档后刷新”：现有 read_save_data 会清理部分任务状态、卸装备、
+  把角色送回地图 4 固定位置，不满足无感恢复条件。
+
+源码依据（读取于 2026-10-04；上游 main 会变化，实际修复以锁定版本和实测为准）
+https://github.com/ruby/ruby.wasm/blob/main/packages/npm-packages/ruby-wasm-wasi/src/bindgen/legacy/rb-abi-guest.js
+https://github.com/ruby/ruby.wasm/blob/main/packages/gems/js/ext/js/bindgen/legacy/rb-abi-guest.c
+https://github.com/ruby/ruby.wasm/blob/main/packages/gems/js/ext/js/witapi-core.c
