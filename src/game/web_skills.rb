@@ -88,6 +88,8 @@ module WebSkill
   SKILL_WORDS = {}
   # 连击型绝招：绝招编号 => [出招用哪门武功的招式, 连击次数]，走 026 attack_times
   COMBOS = {}
+  # 连击后的定身效果：绝招编号 => { state: 状态编号, text: 描述 }
+  COMBO_STUNS = {}
   # 绝招的使用条件：绝招编号 => [[变量, 值], ...]，与 103 Scene_Battle 4 skill_check 的格式相同：
   # 变量小于 38 时要求“当前启用”等于该值（29 拳脚、30 兵刃、32 内功），否则要求等级不低于该值
   REQUIREMENTS = {}
@@ -117,8 +119,25 @@ module WebSkill
     REQUIREMENTS[perform_id] = list
   end
 
-  def combo(perform_id, moves_of:, times:)
+  # stun：连击后的定身效果，{ state: 状态编号, text: '描述' }。
+  #   至少一下打中、对方没倒下时，再按原版乱环诀的内力比拼（hit_result?）判定是否定住。
+  #   状态用原版的“木鸡”：1 木鸡3（最多 3 回合，每次挨打 15% 机会醒来）、2 木鸡5、19 木鸡8
+  def combo(perform_id, moves_of:, times:, stun: nil)
     COMBOS[perform_id] = [moves_of, times]
+    COMBO_STUNS[perform_id] = stun if stun
+  end
+
+  # 025 skill_effect 在连击结束后调用
+  def after_combo(perform_id, user, target, window, hp_before)
+    st = COMBO_STUNS[perform_id] or return
+    return unless target.hp < hp_before && target.hp > 0
+    return unless target.hit_result?(user, target)
+    # 先显示最后一下的结果，再显示定身（战斗流程随后会显示 $defend_text）
+    window.draw_words($defend_text)
+    31.times { Graphics.update }
+    target.add_state(st[:state])
+    objector = user.is_a?(Game_Actor) ? target.name : '你'
+    $defend_text = fill(st[:text], objector: objector)
   end
 
   def fill(text, vars)

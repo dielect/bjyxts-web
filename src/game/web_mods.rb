@@ -46,9 +46,10 @@ module WebMod
   @enemies = {}                                  # 新敌人编号 => 定义
   @weapons = {}                                  # 新武器编号 => 定义
   @skills  = {}                                  # 新绝招编号 => 定义
+  @items   = {}                                  # 新物品编号 => 定义
 
   class << self
-    attr_reader :maps, :edits, :enemies, :weapons, :skills
+    attr_reader :maps, :edits, :enemies, :weapons, :skills, :items
 
     # 定义一个能战斗的 NPC 的数据（敌人、敌群、数值表），在地图里用 npc(..., fight: 编号) 摆放。
     #   like：以哪个原版 NPC 为模板（敌人编号），复制它的全部数据后再改
@@ -81,6 +82,11 @@ module WebMod
 
     def skill(id, like:, **attrs)
       define_record(@skills, 'Skills', 28, id, like, attrs)
+    end
+
+    # 新物品，编号从 23 起：WebMod.item 23, like: 19, name: '……', description: '……'
+    def item(id, like:, **attrs)
+      define_record(@items, 'Items', 23, id, like, attrs)
     end
 
     def define_record(table, what, first, id, like, attrs)
@@ -166,6 +172,8 @@ module WebMod
         append_records(obj, @weapons, 'Weapons')
       elsif fn.to_s =~ /Skills\.rxdata\z/i
         append_records(obj, @skills, 'Skills')
+      elsif fn.to_s =~ /Items\.rxdata\z/i
+        append_records(obj, @items, 'Items')
       elsif (id = map_id_of(fn)) && @edits.key?(id)
         b = Builder.new(obj, id, FIRST_EDIT_EVENT_ID)
         @edits[id].each { |blk| blk.call(b) }
@@ -265,7 +273,7 @@ module WebMod
     #   tile：人物头像图块，824～887
     #   talk：交谈内容，每个字符串是一页对话；需要条件分支时改用块：
     #         m.npc(...) { |c| c.if_switch(102) { c.text '……' }.else { c.text '……' } }
-    #   look：查看的描述。字符串，或 { age:, level:, attack:, items:, text: }
+    #   look：查看的描述。字符串，或 { age:, level:, attack:, items:, text: }。text 自动按 20 字一行拆开，最多 100 字
     #         age 是年龄的十位数（3 → “30多岁”），level / attack 是 $levels / $attacks 的下标
     #   fight：能战斗时给出敌人编号（WebMod.enemy 定义），或 { enemy:, loot:, morality:, switch:, lose:, corpse: }
     #         loot：战胜后得到的东西，[[:armor, 4], [:weapon, 15], [:item, 16, 2]]，最多 4 种
@@ -276,6 +284,21 @@ module WebMod
     #         杀死后：自开关 A 打开（事件换成第 2 页的尸体），$live[编号] 记为 false。
     #         name、tile 不写时取敌人定义里的。
     #   shop：卖的东西，[[:weapon, 31], [:item, 2], [:armor, 4]]，加一个“交易”选项（与原版小商贩相同）
+    LOOK_LINE = 20
+    NO_LINE_START = '，。、；：！？”’）》」』…'
+
+    # 按 20 字拆行；标点不放在行首，挂到上一行末尾（多一个字会被略微压窄，不会被截掉）
+    def split_look(text)
+      lines = []
+      text.each_char do |ch|
+        if lines.empty? || (lines[-1].size >= LOOK_LINE && !NO_LINE_START.include?(ch))
+          lines << +''
+        end
+        lines[-1] << ch
+      end
+      lines
+    end
+
     def npc(x, y, name: nil, tile: nil, talk: [], look: nil, fight: nil, shop: nil, &block)
       fight = { enemy: fight } if fight.is_a?(Integer)
       if fight
@@ -288,9 +311,12 @@ module WebMod
       raise ArgumentError, "npc #{name}：tile 应是人物头像 824～887" unless tile && (824..887).include?(tile)
       look = { text: look } if look.is_a?(String)
       look = { age: 3, level: 0, attack: 0, items: '布衣', text: '' }.merge(look || {})
+      # 查看界面每行只画一次、宽约 20 个汉字，原版把描述拆成最多 5 行（str1～str5）
+      lines = split_look(look[:text].to_s)
+      raise ArgumentError, "npc #{name}：查看描述超过 #{LOOK_LINE * 5} 字" if lines.size > 5
       args = [name, look[:age].to_s].map(&:inspect).join(',') +
              ",$levels[#{look[:level].to_i}],$attacks[#{look[:attack].to_i}]," +
-             [look[:items], look[:text]].map(&:inspect).join(',')
+             [look[:items], *lines].map(&:inspect).join(',')
       labels = %w[交谈 查看]
       labels << '战斗' if fight
       labels << '交易' if shop

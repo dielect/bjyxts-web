@@ -133,6 +133,9 @@ if defined?(WebSkill)
     emit.call('check', "perform#{pid}", "绝招 #{pid} 不在 Skills 数据里（WebMod.skill）") unless $data_skills[pid]
     emit.call('check', "req#{pid}", "绝招 #{pid} 没有使用条件（WebSkill.requirement），战斗中选它会出错") unless WebSkill::REQUIREMENTS[pid]
     emit.call('check', "words#{pid}", "绝招 #{pid} 没有描述（WebSkill.skill_words），战斗中使用会出错") unless WebSkill::SKILL_WORDS[pid]
+    if (st = WebSkill::COMBO_STUNS[pid]) && (!$data_states[st[:state]] || st[:text].to_s.empty?)
+      emit.call('check', "stun#{pid}", "绝招 #{pid} 的定身效果状态 #{st[:state]} 不存在或没有描述")
+    end
     if (c = WebSkill::COMBOS[pid]) && !ORIGINAL_ATTACK_WORDS.include?(c[0]) && !WebSkill::ATTACK_WORDS[c[0]]
       emit.call('check', "combo#{pid}", "连击绝招 #{pid} 用的武功 #{c[0]} 没有招式描述")
     end

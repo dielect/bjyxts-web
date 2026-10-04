@@ -8,7 +8,7 @@
 
 2026-10-04 支线：打狗棒法传承
 ----------------------------
-src/game/mods/010_打狗棒法.rb/新增/棍类武器 31 齐眉棍、32 熟铜棍、33 绿玉竹杖；绝招 28 天下无狗；商业街新增老乞丐（支线）和棍棒摊（出售 31、32）；五指山新增拾取绿玉竹杖的事件。使用开关 102～104、变量 161。
+src/game/mods/010_打狗棒法.rb/新增/棍类武器 31 齐眉棍、32 熟铜棍、33 绿玉竹杖；绝招 28 天下无狗（连击四次，可能定住对方）；物品 23 泛黄的旧纸；敌人 / 敌群 144 老乞丐；商业街路边新增老乞丐（支线，能战斗）和棍棒摊（出售 31、32）；五指山新增拾取绿玉竹杖的事件。使用开关 102～105、变量 161。
 src/game/web_skills.rb/WebSkill/weapon_type、perform、attack_words、skill_words、combo、requirement/新增：扩展内容登记武器类型、绝招、招式描述、绝招描述、连击绝招和绝招使用条件。
 src/game/web_mods.rb/WebMod/weapon、skill/新增：读取 Weapons.rxdata、Skills.rxdata 时追加新武器、新绝招。Builder#npc 新增 shop 参数；Commands 新增 gain、lose。
 008 - Data_Attack/（全局）/draw_atk_text/38-47、256/NPC 兵器类型改为 WebSkill.weapon_base；原版表里查不到的招式描述改查 WebSkill.attack_words_for（原版武功不受影响）。
@@ -16,6 +16,8 @@ src/game/web_mods.rb/WebMod/weapon、skill/新增：读取 Weapons.rxdata、Skil
 025 - Game_Battler 3/Game_Battler/skill_effect/298/连击绝招列表追加 WebSkill::COMBOS 登记的绝招。
 026 - Game_Battler 4/Game_Battler/attack_times/66/登记的连击绝招先取得招式与连击次数，原版绝招不变。
 103 - Scene_Battle 4/Scene_Battle/skill_check/519/原版表里没有的绝招改查 WebSkill::REQUIREMENTS。
+025 - Game_Battler 3/Game_Battler/skill_effect/299/连击绝招结束后调用 WebSkill.after_combo，处理登记了定身效果（stun）的绝招；原版绝招没有登记，结果不变。
+src/game/web_mods.rb/WebMod/item、Builder#npc/新增 WebMod.item 追加新物品；NPC 查看描述按 20 字拆成多行（与原版一致，标点不放行首）。
 tools/build.py/PATCHES/新增上述 008、011、025、026、103 的文本替换。
 tools/skill-baseline-test.mjs/硬性检查/新增：拳脚兵刃武功都有招式描述；新绝招都有数据、使用条件、描述；连击绝招用到的招式有描述。基准随 31～33 号武器成为棍类而更新。
 
