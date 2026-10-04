@@ -160,10 +160,7 @@ def build_audio():
     return res
 
 
-def build_font(scripts):
-    dst = os.path.join(GAME, 'font.woff2')
-    if FAST and os.path.exists(dst):
-        return
+def font_chars(scripts):
     chars = set()
     for _, code in scripts:
         chars.update(code)
@@ -183,12 +180,50 @@ def build_font(scripts):
             except UnicodeDecodeError:
                 pass
     chars.update(chr(c) for c in range(0x20, 0x7F))
-    chars = {c for c in chars if c.isprintable() and ord(c) >= 0x20}
+    return {c for c in chars if c.isprintable() and ord(c) >= 0x20}
+
+
+# 游戏文字会用到的范围：中日韩标点、汉字、全角符号（代码注释里的 ⚙ 之类符号不算）
+DISPLAY_RANGES = [(0x3000, 0x303F), (0x3400, 0x4DBF), (0x4E00, 0x9FFF), (0xF900, 0xFAFF), (0xFF00, 0xFFEF)]
+
+
+def missing_glyphs(path, chars):
+    """字体子集里缺少的汉字和全角符号。没装 fontTools 时返回 None。"""
+    try:
+        from fontTools.ttLib import TTFont
+    except ImportError:
+        return None
+    cmap = TTFont(path).getBestCmap()
+    return sorted(c for c in chars if any(a <= ord(c) <= b for a, b in DISPLAY_RANGES) and ord(c) not in cmap)
+
+
+def build_font(scripts):
+    dst = os.path.join(GAME, 'font.woff2')
+    chars = font_chars(scripts)
+    if FAST and os.path.exists(dst):
+        # --fast 也要保证新加的文字都在字体里：缺字时浏览器会用系统字体代替，笔画粗细明显不同
+        script_chars = {c for _, code in scripts for c in code if c.isprintable()}
+        missing = missing_glyphs(dst, script_chars)
+        if missing is None:
+            print('警告：未安装 fontTools，无法检查字体是否缺字（pip install fonttools brotli）')
+            return
+        if not missing:
+            return
+        print(f'字体缺少 {len(missing)} 个字，重新生成：{"".join(missing)}')
     txt = os.path.join(ROOT, 'tools', '.chars.txt')
     open(txt, 'w', encoding='utf-8').write(''.join(sorted(chars)))
+    # 字体源：Noto Serif CJK SC（.ttc 取第 2 号即简体中文）或 Noto Serif SC（.otf）
     src = os.environ.get('CJK_FONT', '/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc')
-    subprocess.run(['pyftsubset', src, '--font-number=2', f'--text-file={txt}', '--flavor=woff2',
-                    f'--output-file={dst}', '--layout-features=*', '--no-hinting'], check=True)
+    if not os.path.exists(src):
+        raise SystemExit(f'找不到字体源 {src}，用环境变量 CJK_FONT 指定 Noto Serif CJK SC / Noto Serif SC 的路径')
+    cmd = [sys.executable, '-m', 'fontTools.subset', src, f'--text-file={txt}', '--flavor=woff2',
+           f'--output-file={dst}', '--layout-features=*', '--no-hinting']
+    if src.lower().endswith('.ttc'):
+        cmd.insert(4, '--font-number=2')
+    subprocess.run(cmd, check=True)
+    missing = missing_glyphs(dst, {c for _, code in scripts for c in code if c.isprintable()})
+    if missing:
+        raise SystemExit(f'字体源里也没有这些字：{"".join(missing)}')
 
 
 def main():
