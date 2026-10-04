@@ -23,6 +23,7 @@
 
 056 - Window_Item/Window_Item/update_help/143、146、147/把 text.size、text.slice 改为按字节计算（bytesize、RGWeb.bslice）。原因同上，保证物品说明仍在原来的位置分成两行。
 
+086 - Scene_Title/Scene_Title/save_test/127/在方法开头直接 return false，关闭读档时的防作弊检查（经验、潜能相对游戏时长的增速，经验上限等）。原版检查不通过时会清空存档变量并退出；本项目自用不公开发行，为方便调整数值、设计初始秘籍而关闭。
 088 - Scene_Creat/Scene_Create/change_name/61-62/去掉 Thread.new{…} 与 name_thread.exit，改为直接调用 ActorNameInput(1)。网页输入框是异步的，必须在主流程中等待输入结果。
 
 104 - Scene_PreNetBattle/Scene_PreNetBattle/initialize、main/（追加在 108 之后）/覆盖成提示“网页单机版不支持联网对战。”后返回地图。原版依赖 NetworkSupport.dll。
@@ -52,7 +53,8 @@ src/ruby/rgss_kernel.rb
     bslice：按 GBK 字节宽度截取字符串（汉字算 2 字节）。
     await_js：等待浏览器端的异步结果（输入框、弹窗）。
   Kernel#p/print/msgbox：用网页弹窗显示信息（原版是 Windows 消息框）。
-  load_data/save_data：读写内存文件系统中的 rxdata。
+  load_data/save_data：读写内存文件系统中的 rxdata。读取 Data/CommonEvents.rxdata 时调用 RGWeb.patch_common_events。
+  RGWeb.patch_common_events：把公共事件 4「食物饮水」中的数值校验条件（经验 CRC 与变量 152 不符、或变量 153 小于潜能+3 时，清零变量 19-89 并强制存档、提示“系统数值出现异常”）改为恒假。原数据文件不改，仅运行时生效。本项目自用不发行，为方便调整数值、设计初始秘籍而关闭。
   Win32API：空实现，所有调用都返回 0，防止残留调用出错。
   File.open/File#close：写入并关闭文件时，把 Gmud.sav 同步到浏览器 localStorage。
   Ruby 1.8 行为兼容：Kernel#rand（浮点/0 参数）、Array#to_s（无分隔拼接）、Hash#index、Object#type，

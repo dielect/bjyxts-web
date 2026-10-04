@@ -78,7 +78,9 @@ module Kernel
   def load_data(fn)
     fn = RGWeb.utf8(fn.to_s)
     data = File.open(fn, 'rb') { |f| f.read }
-    RGWeb.fix_enc(Marshal.load(data))
+    obj = RGWeb.fix_enc(Marshal.load(data))
+    RGWeb.patch_common_events(obj) if fn =~ /CommonEvents\.rxdata\z/i
+    obj
   end
   def save_data(obj, fn)
     File.open(RGWeb.utf8(fn.to_s), 'wb') { |f| Marshal.dump(obj, f) }
@@ -181,3 +183,22 @@ end
 
 $DEBUG = false
 $BTEST = false
+
+module RGWeb
+  # 公共事件 4「食物饮水」（并行）里的数值校验：经验 CRC（变量 152）或潜能校验（变量 153）
+  # 对不上时清零变量 19..89 并强制存档。本项目自用，按需求关闭：把该条件分歧改为恒假。
+  def self.patch_common_events(ces)
+    n = 0
+    ces.each do |ce|
+      next unless ce && ce.list
+      ce.list.each do |c|
+        next unless c.code == 111 && c.parameters[0] == 12 && c.parameters[1].is_a?(String)
+        if c.parameters[1].include?('$game_variables[152]')
+          c.parameters[1] = 'false'
+          n += 1
+        end
+      end
+    end
+    n
+  end
+end

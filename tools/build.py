@@ -44,6 +44,8 @@ end
 
 # (script number, old, new, count)  count=None means "at least once"
 PATCHES = [
+    # 读档防作弊检查（经验/潜能增速、数值上限等）：本项目自用不发行，按需求关闭
+    ('086', 'def save_test(p_time)', 'def save_test(p_time); return false # 网页版：关闭读档防作弊检查', 1),
     ('088', 'name_thread=Thread.new{ActorNameInput(1)}', 'ActorNameInput(1)', 1),
     ('088', 'name_thread.exit', '', 1),
     ('005', '@name.size*8', '@name.bytesize*8', 3),
