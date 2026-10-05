@@ -86,6 +86,7 @@ module WebSkill
   ATTACK_WORDS = {}
   # 绝招的描述：绝招编号 => [出招, 命中, 被化解]，与 011 Data_Skill 的格式相同，占位符同上（没有 %{sp}）
   SKILL_WORDS = {}
+  DEFEND_WORDS = {}
   # 连击型绝招：绝招编号 => [出招用哪门武功的招式, 连击次数]，走 026 attack_times
   COMBOS = {}
   # 连击后的定身效果：绝招编号 => { state: 状态编号, text: 描述 }
@@ -178,6 +179,11 @@ module WebSkill
     ATTACK_WORDS[skill_id] = entries
   end
 
+  # 新轻功的闪避描述（%{user} 闪避者、%{objector} 出手者）；原版 009 表里没有的轻功用这里的，再没有就用基本轻功的
+  def defend_words(skill_id, entries)
+    DEFEND_WORDS[skill_id] = entries
+  end
+
   def skill_words(perform_id, entries)
     SKILL_WORDS[perform_id] = entries
   end
@@ -218,6 +224,12 @@ module WebSkill
     list = ATTACK_WORDS[skill_id] or return nil
     vars = { user: user, objector: objector, weapon: weapon, sp: sp }
     list.map { |lv, text, *rest| [lv, fill(text, vars), *rest] }
+  end
+
+  # 009 draw_defend_text 在原版表里查不到时调用
+  def defend_words_for(skill_id, user, objector)
+    list = DEFEND_WORDS[skill_id] or return nil
+    list.map { |text| fill(text, user: user, objector: objector) }
   end
 
   # 011 get_skill_words 在原版表里查不到时调用
@@ -305,6 +317,7 @@ def study_skill
     end
   end
   learn.call($game_variables[32])
+  learn.call($game_variables[31])    # 原版轻功没有绝招；扩展的轻功可以带（例如 140 攀山步的斧法）
   if actor.weapon_id == 0
     learn.call($game_variables[29])
   elsif weapon_matching_skill?

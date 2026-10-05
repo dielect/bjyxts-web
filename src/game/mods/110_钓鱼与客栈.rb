@@ -385,15 +385,15 @@ module WebLife
     def cook_wait_text
       o = order
       have = $game_party.item_number(o[:item])
-      unit = o[:dish] ? '份' : '条'
+      unit = o[:dish] ? '份' : o[:wood] ? '根' : '条'
       "#{$data_items[o[:item]].name}#{o[:qty]}#{unit}，你身上有#{have}#{unit}。不急，慢慢来。"
     end
 
     def cook_done_text
       o = order
-      unit = o[:dish] ? '份' : '条'
+      unit = o[:dish] ? '份' : o[:wood] ? '根' : '条'
       text = "#{$data_items[o[:item]].name}#{o[:qty]}#{unit}，一#{unit}不少！这是#{o[:pay]}两，你点点。"
-      (cook[:served] ||= []) << o[:item] unless (cook[:served] ||= []).include?(o[:item])
+      (cook[:served] ||= []) << o[:item] unless o[:wood] || (cook[:served] ||= []).include?(o[:item])      # 木柴不上菜牌
       cook[:dishes] = (cook[:dishes] || 0) + 1 if o[:dish]
       finish_order
       text

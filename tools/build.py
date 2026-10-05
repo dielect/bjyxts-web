@@ -96,6 +96,7 @@ PATCHES = [
         when 25,26,27
           sk_id=43
         end''', '        sk_id=WebSkill.weapon_base($npc_data[9]) || 0', 1),
+    ('009', 'words=defend_words[key]', 'words=defend_words[key] || WebSkill.defend_words_for(key,user,objector) || defend_words[46]', 1),
     ('011', 'return skills_words_list[id]', 'return skills_words_list[id] || WebSkill.skill_words_for(id,user,objector,weapon_name)', 1),
     ('025', 'when 4,5,24,22,14,15,8,26,27\n', 'when 4,5,24,22,14,15,8,26,27,*WebSkill::COMBOS.keys\n', 1),
     ('025', '      attack_times(user,self,skill.id,window)\n    #落英缤纷', '      __hp0=self.hp\n      attack_times(user,self,skill.id,window)\n      WebSkill.after_combo(skill.id,user,self,window,__hp0)\n    #落英缤纷', 1),

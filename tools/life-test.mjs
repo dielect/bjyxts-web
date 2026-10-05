@@ -265,7 +265,7 @@ check.call(WebSkill.category(90) == WebSkill::WEAPON && WebSkill.base_of(90) == 
 
 # ---------------------------------------------------------------- 厨子
 fresh.call
-check.call(L::RECIPES.size == 12 && (52..63).all? { |id| $data_items[id].type == 0 && $data_common_events[$data_items[id].common_event_id].name.start_with?('吃-') }, '十二道菜：归食物，各有吃的公共事件')
+check.call(L::RECIPES.size == 14 && [*52..63, 80, 81].all? { |id| $data_items[id].type == 0 && $data_common_events[$data_items[id].common_event_id].name.start_with?('吃-') }, '十二道菜：归食物，各有吃的公共事件')
 check.call(L::RECIPES.values.all? { |r| r[:needs].keys.all? { |i| $data_items[i] } && r[:fx].all? { |e| !WebGear.describe(e).empty? } }, '菜谱的食材和增益都有效')
 # 入行：交满三单鱼
 check.call(!L.kitchen? && !L.kitchen_offer_due?, '没交单不能入行')
@@ -331,6 +331,91 @@ L.cancel_order
 srand(5)
 40.times { break if L.known?(63); L.bottle_text }
 check.call(L.known?(63), '漂流瓶偶尔有八宝鱼翅的方子')
+
+# ---------------------------------------------------------------- 钓位一定挨着水（之前误把柳树当成水塘）
+WATER = [697, 570, 808, 686, 677, 683, 691, 693, 675, 685, 694]
+spots = []
+$data_mapinfos.keys.each do |mid|
+  m = load_data(format('/game/Data/Map%03d.rxdata', mid))
+  m.events.each_value do |e|
+    is_spot = e.name == '钓位' || (mid == 13 && [8, 9].include?(e.id))
+    spots << [mid, e.x, e.y] if is_spot
+  end
+end
+spots.each do |mid, x, y|
+  m = load_data(format('/game/Data/Map%03d.rxdata', mid))
+  near = [[0, 0], [0, 1], [0, -1], [1, 0], [-1, 0]].any? { |dx, dy| (0..2).any? { |z| WATER.include?(m.data[x + dx, y + dy, z]) } }
+  check.call(near, "地图 #{mid} 的钓位（#{x},#{y}）旁边没有水")
+end
+check.call(spots.size >= 10, "钓位数量 #{spots.size}")
+
+# ---------------------------------------------------------------- 樵夫
+fresh.call
+L.data[:stock] = {}
+a.equip(0, 0)
+check.call(!L.axe?, '没拿斧头')
+a.equip(0, 76)
+check.call(L.axe?, '柴刀是斧头')
+L::FORESTS.each_key { |f| 4.times { |s| $game_variables[158] = s * 750; check.call(L::WOODS.values.any? { |w| w[:forest] == f && w[:seasons].include?(L.season) }, "#{f} 在#{L.season_name}季没有树") } }
+$game_variables[158] = 0
+srand(2)
+L.start_chop(:wudang)
+check.call($game_variables[9] == 1 && L.tree_prompt.include?('怎么下斧'), '武当山脚可以砍')
+w = L.instance_variable_get(:@tree)
+n0 = $game_party.item_number(w[:item])
+L.chop(w[:cut])
+check.call($game_party.item_number(w[:item]) == n0 + 2 && L.wood_skill > 0, "下对斧多得一根：#{w[:name]}")
+L.start_chop(:wudang); w = L.instance_variable_get(:@tree); n0 = $game_party.item_number(w[:item])
+L.chop((w[:cut] + 1) % 3)
+check.call($game_party.item_number(w[:item]) == n0 + 1, '下错斧只得一根')
+20.times { L.start_chop(:wudang); L.chop(0) if $game_variables[9] == 1 }
+L.start_chop(:wudang)
+check.call($game_variables[9] == 5 && L.bald_text.include?('砍秃'), '砍多了林子秃了')
+L.data[:stock] = {}
+# 山货：樵夫套 5 件多一份
+got = 300.times.map { L.instance_variable_set(:@forest, :wudang); L.gather }.reject(&:empty?)
+check.call(got.size > 30, "砍三百次采到山货 #{got.size} 次")
+a.equip(1, 39); a.equip(3, 113); a.equip(2, 115); a.equip(5, 114)
+check.call(WebGear.set_count(WebGear.sets[:樵夫]) == 5 && WebGear.value(:gather_more) > 0, '樵夫套 5 件：采山货多一份')
+a.equip(1, 0); a.equip(3, 0); a.equip(2, 0); a.equip(5, 0)
+# 攀山步：学过、拿着斧头砍柴才长；绝招要拿斧头
+$game_variables[19] = 2000000; $game_variables[71] = 1; $game_variables[131] = 0
+10.times { L.data[:stock] = {}; L.start_chop(:basin); L.chop(0) if $game_variables[9] == 1 }
+check.call($game_variables[71] > 1, "砍柴练攀山步：#{$game_variables[71]}")
+check.call(WebSkill.category(71) == WebSkill::MOVE && WebSkill.base_of(71) == 46 && WebSkill::PERFORMS[71] == [32, 33], '攀山步是轻功，带两个斧法绝招')
+$game_variables[31] = 71
+dt = draw_defend_text($game_actors[1], Struct.new(:name).new("山豹")) rescue "ERR #{$!.message}"
+check.call(dt.start_with?('你') && dt.include?('|'), "启用攀山步时有闪避描述：#{dt}")
+$game_variables[71] = 80; $game_variables[42] = 80; $game_actors[1].equip(0, 77)
+study_skill
+check.call($game_actors[1].skills.include?(32) && $game_actors[1].skills.include?(33), "启用攀山步学会斧法绝招：#{$game_actors[1].skills.inspect}")
+$game_variables[31] = 0
+study_skill
+check.call(WebSkill.requirements_for(32, nil).none? { |_, lv| lv == 9999 }, '拿着斧头时开山一斧没有额外限制')
+a.equip(0, 0)
+check.call(WebSkill.requirements_for(32, nil).any? { |_, lv| lv == 9999 }, '没拿斧头使不出开山一斧')
+a.equip(0, 76)
+# 入行：老婆婆劈柴满三次送柴刀
+L.data[:chores] = 2
+n0 = $game_party.weapon_number(76)
+Object.class_eval { def __wood_task3; end; def __wood_finishtask; end }   # 原版那部分会开窗口画字，这里只测新加的逻辑
+class Window_Base; def initialize(*) ; end; def contents=(*); end; def contents; Bitmap.new(1, 1); end; def dispose; end; end
+def Graphics.update; end
+task3
+finishtask
+check.call(L.data[:chores] == 3 && L.flag?(:axe) && $game_party.weapon_number(76) == n0 + 1, "劈柴满三次送柴刀（劈了 #{L.data[:chores]} 次）")
+# 好柴入厨
+L.learn(54); $game_party.gain_item(5, 2); $game_party.gain_item(67, 1); fuel0 = $game_party.item_number(67)
+q, n, t = L.cook_dish(54, 2, 2)
+check.call($game_party.item_number(67) == fuel0 - 1 && t.include?('松木'), "做菜添好柴：#{t}")
+# 客栈收木柴
+L.set_flag(:kitchen)
+orders = 40.times.map { L.cook_offer_text; o = L.order; L.cancel_order; o && o[:wood] }.count(true)
+check.call(orders.between?(4, 20), "砍过柴后约四分之一是收木柴：#{orders}/40")
+# 称号
+L.data[:skill][:wood] = 250
+check.call(L.wood_title == '樵隐', "樵技 9 级：#{L.wood_title}")
+a.equip(0, 0)
 
 errs.empty? ? 'ok' : errs.join("\n")
 `);

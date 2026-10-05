@@ -372,19 +372,28 @@ module WebLife
     #      满（等级＋1）² 升一级，升级前要过原版的经验上限检查（ckeck_exp_maxlv）。只是不花潜能
     def practice(times)
       @leveled = nil
-      return unless weapon_rod? && $game_variables[ART].to_i > 0
-      pv = WebSkill.point_var(ART)
-      agi = ($game_variables[48] / 10 + $game_variables[13] + $game_variables[93]) / 2
-      $game_variables[pv] += [agi, 1].max * times
-      while $game_variables[pv] >= ($game_variables[ART] + 1)**2 + 1 && ckeck_exp_maxlv(ART)
-        $game_variables[pv] -= ($game_variables[ART] + 1)**2 + 1
-        $game_variables[ART] += 1
-        @leveled = $game_variables[ART]
-      end
+      return unless weapon_rod?
+      @leveled = train(ART, times)
     end
 
     def practice_note
       @leveled ? "一甩一收之间，你对太公钓法又有了新的领悟！（太公钓法升到#{@leveled}级）" : ''
+    end
+
+    # 边干活边练功（钓鱼练太公钓法、砍柴练攀山步）：规则同原版向师傅学武——每次加（读书识字÷10＋悟性＋加成）÷2
+    # 的修炼进度，满（等级＋1）² 升一级，升级前过原版的经验上限检查。没学过（0 级）不长。返回升到的等级或 nil
+    def train(art, times)
+      return nil unless $game_variables[art].to_i > 0
+      pv = WebSkill.point_var(art)
+      agi = ($game_variables[48] / 10 + $game_variables[13] + $game_variables[93]) / 2
+      $game_variables[pv] += [agi, 1].max * times
+      up = nil
+      while $game_variables[pv] >= ($game_variables[art] + 1)**2 + 1 && ckeck_exp_maxlv(art)
+        $game_variables[pv] -= ($game_variables[art] + 1)**2 + 1
+        $game_variables[art] += 1
+        up = $game_variables[art]
+      end
+      up
     end
 
     # ---- 钓出来的不是鱼
