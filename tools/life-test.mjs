@@ -265,7 +265,7 @@ check.call(WebSkill.category(90) == WebSkill::WEAPON && WebSkill.base_of(90) == 
 
 # ---------------------------------------------------------------- 厨子
 fresh.call
-check.call(L::RECIPES.size == 14 && [*52..63, 80, 81].all? { |id| $data_items[id].type == 0 && $data_common_events[$data_items[id].common_event_id].name.start_with?('吃-') }, '十二道菜：归食物，各有吃的公共事件')
+check.call(L::RECIPES.size == 16 && [*52..63, 80, 81, 119, 120].all? { |id| $data_items[id].type == 0 && $data_common_events[$data_items[id].common_event_id].name.start_with?('吃-') }, '十六道菜（含山珍、药膳）：归食物，各有吃的公共事件')
 check.call(L::RECIPES.values.all? { |r| r[:needs].keys.all? { |i| $data_items[i] } && r[:fx].all? { |e| !WebGear.describe(e).empty? } }, '菜谱的食材和增益都有效')
 # 入行：交满三单鱼
 check.call(!L.kitchen? && !L.kitchen_offer_due?, '没交单不能入行')
@@ -682,6 +682,87 @@ it.instance_variable_set(:@index, 0)
 it.web_say('一行的问题？')
 check.call($game_temp.choice_max == 3 && $game_temp.message_text.include?("乙\n") && it.instance_variable_get(:@index) == 1, "问题和选项在同一个对话框：#{$game_temp.message_text.inspect}")
 $game_temp.message_text = nil; $game_temp.choice_max = 0
+
+# ---------------------------------------------------------------- 郎中
+fresh.call
+$game_switches[153] = false
+L::HERB_PLACES.each_key { |p| 4.times { |se| $game_variables[158] = se * 750; check.call(L::HERBS.values.any? { |h| h[:place] == p && h[:seasons].include?(L.season) }, "#{p} 在#{L.season_name}季没有药") } }
+$game_variables[158] = 0
+# 入行的三种办法
+$game_party.lose_gold($game_party.gold); $game_party.lose_item(74, 99)
+check.call(L.medic_entry_way.nil?, '没草药、没读本草、没钱，进不了门')
+$game_party.gain_gold(600)
+check.call(L.medic_entry_way == :gold, '交五百两拜师礼')
+$game_party.gain_item(74, 3)
+check.call(L.medic_entry_way == :herbs, '送三份草药')
+L.enter_medic
+check.call(L.medic? && $game_party.item_number(74) == 0 && $game_party.weapon_number(80) == 1 && $game_party.gold == 600, '拜师：收下草药，送药锄')
+# 采药
+a.equip(0, 0)
+check.call(!L.hoe?, '没拿药锄')
+a.equip(0, 80)
+check.call(L.hoe?, '药锄')
+srand(4)
+L.start_dig(:wudang)
+h = L.instance_variable_get(:@herb)
+check.call($game_variables[9] == 1 && L.herb_prompt.include?('怎么挖') && !L.herb_prompt.include?('本草纲目'), '武当山可以挖')
+n0 = $game_party.item_number(h[:item])
+L.dig(h[:dig])
+check.call($game_party.item_number(h[:item]) == n0 + 2 && L.medic_skill > 0, "挖对了多得一份：#{$data_items[h[:item]].name}")
+L.start_dig(:wudang); h = L.instance_variable_get(:@herb); n0 = $game_party.item_number(h[:item])
+L.dig((h[:dig] + 1) % 3)
+check.call($game_party.item_number(h[:item]) == n0 + 1, '挖错只得一份')
+20.times { L.start_dig(:wudang); L.dig(0) if $game_variables[9] == 1 }
+L.start_dig(:wudang)
+check.call($game_variables[9] == 5 && L.dug_out_text.include?('武当山'), '挖多了要等')
+L.data[:stock] = {}
+# 悬崖摔下来受伤，药膏治伤
+a.maxhp = L.full_hp; a.hp = a.maxhp
+srand(1)
+r = 30.times.map { L.climb_cliff }
+check.call(r.any? { |t| t.include?('受伤') } && a.maxhp < L.full_hp && r.any? { |t| t.include?('灵芝') }, '攀崖：有时得灵芝，有时摔伤')
+a.maxhp = L.full_hp / 2
+mh = a.maxhp
+t = L.heal_injury(0.1)
+check.call(a.maxhp == mh + (L.full_hp * 0.1).to_i && t.include?('好了一些'), "草药膏治伤：#{t}")
+a.maxhp = L.full_hp
+check.call(L.heal_injury(0.3).include?('没有伤'), '没受伤用药膏')
+# 制药：医术越高会的越多
+check.call(L.med_ids.sort == [114, 116], "入行会草药膏、金银花茶：#{L.med_ids}")
+L.data[:skill][:medic] = 80
+check.call(L.med_ids.include?(8) && !L.med_ids.include?(9) && L.medic_title == '大夫', "大夫会配金创药：#{L.med_ids}")
+$game_party.gain_item(110, 2); $game_party.gain_item(111, 1)
+q, n, t = L.brew(8, 1, 1)
+check.call(q == 2 && n == 2 && $game_party.item_number(8) >= 2 && $game_party.item_number(110) == 0, "配出金创药：#{t}")
+$game_party.gain_item(74, 2)
+q, n, t = L.brew(114, 2, 1)
+check.call($game_party.item_number(114) >= 1 && t.include?('不太对'), "炮制、火候都不对：#{t}")
+check.call([114, 115, 116, 117, 118].all? { |id| $data_items[id].type == 1 } && $data_items[106].type == 2, '药归药物，药材归其他')
+check.call(L::MEDS.keys.all? { |id| $data_items[id].common_event_id > 0 }, '每味药都能用')
+# 看病
+$game_variables[158] = 0; L.data[:patients] = nil
+3.times { L.start_clinic; check.call($game_variables[9] == 1, '有病人'); L.case_question; L.treat(L.instance_variable_get(:@case_answer)) }
+L.start_clinic
+check.call($game_variables[9] == 2, '一天最多三位病人')
+check.call(L::CASES.all? { |_, q, o| WebMod.message_rows(q) == 1 && o.size == 3 } && L::CASES.all? { |c| WebMod.message_rows(c[0]) <= 2 }, '病人的话、题目都放得下')
+L.data[:patients] = nil
+L.instance_variable_set(:@case, L::CASES[3]); L.case_question
+$game_party.gain_item(114, 1); s0 = $game_party.item_number(114); g0 = $game_party.gold
+t = L.treat(L.instance_variable_get(:@case_answer))
+full = $game_party.gold - g0
+check.call($game_party.item_number(114) == s0 - 1 && t.include?('翻倍'), "外伤用上自制药膏，诊金翻倍：#{t}")
+L.instance_variable_set(:@case, L::CASES[0]); L.case_question
+g0 = $game_party.gold
+t = L.treat((L.instance_variable_get(:@case_answer) + 1) % 3)
+check.call(t.include?('发汗解表') && $game_party.gold - g0 < full, "治错了：#{t}")
+# 医者套 3 件采药多一份
+a.equip(0, 80); a.equip(3, 119); a.equip(5, 120)
+check.call(WebGear.value(:herb_more) > 0, '医者套 3 件：采药多一份')
+a.equip(0, 0); a.equip(3, 0); a.equip(5, 0)
+# 药膳
+check.call(!L.medic_dishes_due?, '没入厨行不教药膳')
+L.set_flag(:kitchen)
+check.call(L.medic_dishes_due? && L.medic_dishes.include?('当归炖鸡') && !L.medic_dishes_due?, '入了厨行教两道药膳')
 
 errs.empty? ? 'ok' : errs.join("\n")
 `);

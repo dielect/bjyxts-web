@@ -21,7 +21,7 @@ end
   d = $data_armors[i]
   check.call(d && d.auto_state_id == 0 && d.int_plus == 0 && d.pdef <= 60 && (0..6).include?(d.kind), "防具 #{i} 不存在或数据不对")
 end
-check.call($data_weapons.size == 80 && $data_armors.size == 119, "编号范围：武器到 #{$data_weapons.size - 1}，防具到 #{$data_armors.size - 1}")
+check.call($data_weapons.size == 81 && $data_armors.size == 121, "编号范围：武器到 #{$data_weapons.size - 1}，防具到 #{$data_armors.size - 1}")
 [[39, 0], [49, 1], [63, 2], [75, 3], [85, 4], [94, 5]].each { |i, k| check.call($data_armors[i].kind == k, "防具 #{i} 部位应为 #{k}") }
 ($data_weapons.compact + $data_armors.compact).each do |d|
   check.call(d.description.bytesize <= 75, "#{d.name} 的描述超过一页（特效说明另起一页）") if d.id >= 32

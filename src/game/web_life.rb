@@ -650,18 +650,30 @@ end
 #--------------------------------------------------------------------------
 # 做菜画面：左边菜谱（缺料的变灰），上方显示食材与讲究；选菜后依次选火候、调味
 #--------------------------------------------------------------------------
+module WebLife
+  # 按字数拆行；标点不放在行首，挂到上一行末尾（同 WebMod 的查看描述）
+  def self.wrap_lines(text, width)
+    lines = []
+    text.each_char do |ch|
+      lines << +'' if lines.empty? || (lines[-1].size >= width && !WebMod::Builder::NO_LINE_START.include?(ch))
+      lines[-1] << ch
+    end
+    lines
+  end
+end
+
 class Scene_Cook
   def main
     @help = Window_Help.new
-    @ids = WebLife.cook_data[:recipes].sort
-    @list = Window_Command.new(240, @ids.empty? ? ['（还不会做菜）'] : @ids.map { |id| WebLife::RECIPES[id][:name] })
+    @ids = ids
+    @list = Window_Command.new(240, @ids.empty? ? [empty_text] : @ids.map { |id| label(id) })
     @list.y = 64
     @list.height = 416                              # 菜少时也占满一列，不留黑底
-    @ids.each_with_index { |id, i| @list.disable_item(i) unless WebLife.can_cook?(id) }
+    @ids.each_with_index { |id, i| @list.disable_item(i) unless can?(id) }
     @info = Window_Base.new(240, 64, 400, 416)
     @info.contents = Bitmap.new(368, 384)
-    @heat = Window_Command.new(160, WebLife::HEATS)
-    @taste = Window_Command.new(160, WebLife::TASTES)
+    @heat = Window_Command.new(160, options1)
+    @taste = Window_Command.new(160, options2)
     [@heat, @taste].each { |w| w.x = 320; w.y = 240; w.visible = w.active = false; w.z = 200 }
     @step = :list
     refresh_info
@@ -679,11 +691,26 @@ class Scene_Cook
     @ids[@list.index]
   end
 
+  # ---- 下面几个方法是灶台专用的内容；药炉（160_郎中.rb 的 Scene_Brew）继承这个画面，换掉它们
+  def ids = WebLife.cook_data[:recipes].sort
+  def label(id) = WebLife::RECIPES[id][:name]
+  def can?(id) = WebLife.can_cook?(id)
+  def empty_text = '（还不会做菜）'
+  def options1 = WebLife::HEATS
+  def options2 = WebLife::TASTES
+  def prompt1 = '火候：文火、武火，还是先武后文？'
+  def prompt2 = '调味：清淡、咸鲜，还是重口？'
+  def make(id, a, b) = WebLife.cook_dish(id, a, b)
+
   def refresh_info
     c = @info.contents
     c.clear
     c.font.color.set(0, 0, 0)
     c.font.size = 20
+    draw_info(c)
+  end
+
+  def draw_info(c)
     l = WebLife
     c.draw_text(0, 0, 368, 28, "灶台　厨艺：#{l.cook_title || '新手'}（#{l.cook_level}级）")
     meal = l.cook_data[:meal]
@@ -694,7 +721,7 @@ class Scene_Cook
     c.font.size = 18
     y = 64
     wrap = lambda do |text|
-      text.scan(/.{1,19}/).each { |line| c.draw_text(0, y, 368, 24, line); y += 24 }
+      WebLife.wrap_lines(text, 19).each { |line| c.draw_text(0, y, 368, 24, line); y += 24 }
     end
     wrap.call("食材：#{l.needs_text(id)}")
     y += 6
@@ -713,13 +740,13 @@ class Scene_Cook
         $game_system.se_play($data_system.cancel_se)
         $scene = Scene_Map.new
       elsif Input.trigger?(Input::C)
-        if current && WebLife.can_cook?(current)
+        if current && can?(current)
           $game_system.se_play($data_system.decision_se)
           @step = :heat
           @list.active = false
           @heat.visible = @heat.active = true
           @heat.index = 0
-          @help.set_text('火候：文火、武火，还是先武后文？')
+          @help.set_text(prompt1)
         else
           $game_system.se_play($data_system.buzzer_se)
         end
@@ -734,7 +761,7 @@ class Scene_Cook
         @heat.active = false
         @taste.visible = @taste.active = true
         @taste.index = 0
-        @help.set_text('调味：清淡、咸鲜，还是重口？')
+        @help.set_text(prompt2)
       end
     when :taste
       @taste.update
@@ -743,11 +770,11 @@ class Scene_Cook
         @heat.active = true
         @step = :heat
       elsif Input.trigger?(Input::C)
-        q, _, text = WebLife.cook_dish(current, @heat.index, @taste.index)
+        q, _, text = make(current, @heat.index, @taste.index)
         $game_system.se_play(q == 2 ? $data_system.shop_se : $data_system.decision_se)
         back_to_list
         @help.set_text(text)
-        @ids.each_with_index { |id, i| WebLife.can_cook?(id) ? @list.able_item(i) : @list.disable_item(i) }
+        @ids.each_with_index { |id, i| can?(id) ? @list.able_item(i) : @list.disable_item(i) }
         refresh_info_keep_help
       end
     end
