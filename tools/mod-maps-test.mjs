@@ -38,6 +38,13 @@ module ModCheck
     e
   end
 
+  # 去掉商品（605），用于比较用 goods 添过货的商人其余部分是否原样
+  def without_goods(event)
+    e = Marshal.load(Marshal.dump(event))
+    e.pages.each { |pg| pg.list.reject! { |c| c.code == 605 } }
+    e
+  end
+
   def passable?(map_id, x, y)
     $game_map.setup(map_id)                   # Game_Event 初始化时读全局 $game_map，不能另建实例
     $game_map.events.clear                    # 只看地形
@@ -63,7 +70,9 @@ module ModCheck
       b = WebMod::Builder.new(WebMod.raw_load(path(id)), id, WebMod::FIRST_EDIT_EVENT_ID)
       WebMod.edits[id].each { |blk| blk.call(b) }
       raw.events.each do |eid, e|
-        if b.touched_events.include?(eid)
+        if b.stocked_events.include?(eid)
+          errors << "地图 #{id} 的原版事件 #{eid}（#{e.name}）除商品外被改动" unless cur.events[eid] && dump(without_goods(cur.events[eid])) == dump(without_goods(e))
+        elsif b.touched_events.include?(eid)
           errors << "地图 #{id} 的原版事件 #{eid}（#{e.name}）除交谈内容外被改动" unless cur.events[eid] && dump(without_talk(cur.events[eid])) == dump(without_talk(e))
         else
           errors << "地图 #{id} 的原版事件 #{eid} 被改动" unless cur.events[eid] && dump(cur.events[eid]) == dump(e)
@@ -148,7 +157,11 @@ module ModCheck
         ev.pages[0].list.each { |c| used << c.parameters[0] if c.code == 301 && c.parameters[0] >= WebMod::FIRST_ENEMY_ID }
       end
     end
-    (WebMod.enemies.keys - used).each { |id| errors << "敌人 #{id} 定义了，但没有放到任何地图上" }
+    # 江湖奇遇等公共事件里的战斗也算
+    load_data('/game/Data/CommonEvents.rxdata').compact.each do |ce|
+      ce.list.each { |c| used << c.parameters[0] if c.code == 301 && c.parameters[0] >= WebMod::FIRST_ENEMY_ID }
+    end
+    (WebMod.enemies.keys - used).each { |id| errors << "敌人 #{id} 定义了，但没有放到任何地图或公共事件里" }
     (used - WebMod.enemies.keys).each { |id| errors << "地图上的战斗用到敌群 #{id}，但没有定义" }
     errors
   end
@@ -168,12 +181,63 @@ const check = (label) => {
 console.log(rb('"已登记：新地图 #{WebMod.maps.keys.sort.inspect}，修改的原版地图 #{WebMod.edits.keys.sort.inspect}"'));
 check('一、实际内容');
 
+// 一（续）、扩展层加的事件都要真的走得到：从地图的每个入口出发按真实通行规则走（不踩出口），
+//   踩上去触发的事件要能站上去，确定键触发的要能走到它旁边。只“传送”过去测是发现不了的。
+{
+  const errors = rb(String.raw`
+    errors = []
+    maps = WebMod.maps.keys | WebMod.edits.keys
+    transfers = Hash.new { |h, k| h[k] = [] }
+    ($data_mapinfos.keys | WebMod.maps.keys).each do |id|
+      load_data(format('/game/Data/Map%03d.rxdata', id)).events.each_value do |e|
+        e.pages.each { |pg| pg.list.each { |c| transfers[c.parameters[1]] << c.parameters[2..3] if c.code == 201 && c.parameters[0] == 0 } }
+      end
+    end
+    maps.sort.each do |mid|
+      first = WebMod.maps.key?(mid) ? 1 : WebMod::FIRST_EDIT_EVENT_ID
+      $game_map.setup(mid)
+      $game_player = Game_Player.new
+      added = $game_map.events.values.select { |e| e.id >= first && e.list.none? { |c| c.code == 201 } }
+      next if added.empty?
+      exits = $game_map.events.values.select { |e| [1, 2].include?(e.trigger) && e.list.any? { |c| c.code == 201 } }.map { |e| [e.x, e.y] }
+      entries = transfers[mid].uniq
+      errors << "地图 #{mid} 没有入口" if entries.empty?
+      entries.each do |entry|
+        $game_player.moveto(*entry)
+        seen = { entry => true }; queue = [entry]
+        until queue.empty?
+          x, y = queue.shift
+          [[2, 0, 1], [4, -1, 0], [6, 1, 0], [8, 0, -1]].each do |d, dx, dy|
+            xy = [x + dx, y + dy]
+            next if seen[xy] || exits.include?(xy) || !$game_player.passable?(x, y, d)
+            seen[xy] = true; queue << xy
+          end
+        end
+        added.each do |e|
+          name = e.instance_variable_get(:@event).name
+          ok = if e.trigger == 0
+                 [[0, 1], [0, -1], [1, 0], [-1, 0]].any? { |dx, dy| seen[[e.x + dx, e.y + dy]] } || seen[[e.x, e.y]]
+               else
+                 seen[[e.x, e.y]]
+               end
+          errors << "地图 #{mid} 的#{name}（#{e.x},#{e.y}）从入口 #{entry.inspect} 走不到" unless ok
+        end
+      end
+    end
+    errors.uniq.join("\n")
+  `).split('\n').filter(Boolean);
+  console.log(`一（续）、事件可到达：${errors.length ? `${errors.length} 个问题` : '通过'}`);
+  for (const e of errors) console.log('  ' + e);
+  failures.push(...errors);
+}
+
 // 二、示例内容：用地图 6（老婆婆家）的地形做一张新地图，北郊加一个入口
 rb(String.raw`
 # 先清空实际内容，示例不受它们影响（第一部分已检查过）
 WebMod.maps.clear
 WebMod.edits.clear
 WebMod.enemies.clear
+WebMod.instance_variable_get(:@auto_events).clear      # 江湖奇遇的公共事件
 WebMod.enemy 144, name: '测试武师', tile: 852, like: 30, maxhp: 300, gold: 50,
              stats: { 膂力: 30, 闪避: 20, 拳脚: 58, 经验: 50000 }, skills: { 40 => 80, 58 => 60, 47 => 50 }
 WebMod.map 90, name: '测试地图', parent: 21, base: 6 do |m|

@@ -113,7 +113,7 @@ check.call(p1[0][2] == (25 * 1.16).round && p1.find { |m| m[1] == '雪影招式'
 check.call(p1[0][1].include?('你') && p1[0][1].include?('对手'), '招式描述应填好人称')
 # 特效
 enemy = Game_Enemy.allocate
-enemy.instance_variable_set(:@enemy_id, 30); enemy.instance_variable_set(:@hp, 1000); enemy.instance_variable_set(:@sp, 200); enemy.instance_variable_set(:@states, []); enemy.instance_variable_set(:@state_turns, {})
+enemy.instance_variable_set(:@enemy_id, 30); enemy.instance_variable_set(:@hp, 1000); enemy.instance_variable_set(:@sp, 200); enemy.instance_variable_set(:@states, []); enemy.instance_variable_set(:@states_turn, {}); enemy.instance_variable_set(:@current_action, Game_BattleAction.new)
 def enemy.maxhp; 5000; end
 def enemy.maxsp; 5000; end
 $game_variables[61] = 100; $game_variables[29] = 0

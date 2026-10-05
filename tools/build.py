@@ -52,6 +52,10 @@ PATCHES = [
     # 地图名同理：原版按 GBK 字节数（每字 2）算宽度，现在 size 是字符数，地图名会被挤成一小块看不见
     ('090', '@name.bitmap=Bitmap.new(n.size*8,24)', '@name.bitmap=Bitmap.new(n.bytesize*8,24)', 1),
     ('090', 'draw_text(0, 0, n.size*12, 24, n)', 'draw_text(0, 0, n.bytesize*8, 24, n)', 1),
+    # 扩展物品的公共事件（26 起）和原版秘籍一样回到地图执行，否则对话在物品画面里显示不出来
+    ('092', 'if (a>=19 and a<=22) or a==9', 'if (a>=19 and a<=22) or a==9 or a>=26', 1),
+    # 对话后紧跟选项时，按自动换行后的实际行数安排选项位置（原版只数事件里的行数，长句换行后选项会压住文字）
+    ('080', 'if @list[@index+1].parameters[0].size <= 4 - line_count', 'line_count = WebMod.message_rows($game_temp.message_text)\n          if @list[@index+1].parameters[0].size <= 4 - line_count', 1),
     ('056', 'if text.size<=75', 'if text.bytesize<=75', 1),
     ('056', 'help_text[0]=text.slice(0,75)+" →"', 'help_text[0]=RGWeb.bslice(text,0,75)+" →"', 1),
     ('056', 'help_text[1]="← "+text.slice(75,text.size-75)', 'help_text[1]="← "+RGWeb.bslice(text,75,text.bytesize-75)', 1),
@@ -115,6 +119,9 @@ def build_scripts():
             out.append(['web:武功注册表', open(os.path.join(ROOT, 'src', 'game', 'web_skills.rb'), encoding='utf-8').read()])
             # 地图扩展层及其内容（src/game/mods/*.rb 按文件名顺序），见 docs/地图扩展指南.md
             out.append(['web:地图扩展', open(os.path.join(ROOT, 'src', 'game', 'web_mods.rb'), encoding='utf-8').read()])
+            # 江湖奇遇与装备特效的引擎（内容同样写在 src/game/mods）
+            out.append(['web:江湖奇遇', open(os.path.join(ROOT, 'src', 'game', 'web_encounters.rb'), encoding='utf-8').read()])
+            out.append(['web:装备特效', open(os.path.join(ROOT, 'src', 'game', 'web_gear.rb'), encoding='utf-8').read()])
             for mod in sorted(glob.glob(os.path.join(ROOT, 'src', 'game', 'mods', '*.rb'))):
                 out.append([f'mod:{os.path.basename(mod)[:-3]}', open(mod, encoding='utf-8').read()])
             # 网页版扩展（前世奇遇 / 数值修改器），必须在 Main 之前载入

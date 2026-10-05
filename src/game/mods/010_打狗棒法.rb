@@ -168,7 +168,8 @@ end
 WebMod.edit 24 do |m|
   # 踩上去触发（隐形事件按确定键只能站在上面触发，玩家不好找）。
   # 只在找竹杖期间有反应，平时走过去什么也不发生。
-  m.event 18, 5, name: '草丛', trigger: 1 do |c|
+  # 放在山谷东侧崖壁下（14,4）。地图右边那一列（x 16～19）看着能走，其实只能从出口那一格绕过去，到不了
+  m.event 14, 4, name: '草丛', trigger: 1 do |c|
     c.if_script('$game_switches[102] && !$game_switches[103]') do
       c.text '拨开草丛，一截碧绿的竹杖露了出来。'
       c.gain(:weapon, 33)

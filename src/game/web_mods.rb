@@ -45,13 +45,73 @@ module WebMod
   @edits   = Hash.new { |h, k| h[k] = [] }       # 原版地图编号 => [定义块, ...]
   @enemies = {}                                  # 新敌人编号 => 定义
   @weapons = {}                                  # 新武器编号 => 定义
+  @armors  = {}                                  # 新防具编号 => 定义
   @skills  = {}                                  # 新绝招编号 => 定义
   @items   = {}                                  # 新物品编号 => 定义
   @variable_names = {}                           # 变量编号 => 名字（新武功的名字就是它的变量名）
   @common_events = {}                            # 新公共事件编号 => 定义
+  @auto_events = {}                              # 不指定编号的公共事件：键 => 定义（排在有编号的后面）
+  @auto_event_ids = {}                           # 键 => 读取 CommonEvents.rxdata 时分到的编号
+
+  # ---- 剧情奖励（事件里用 c.reward）
+  def self.gain_exp(n)
+    $game_variables[152] = Zlib.crc32(($game_variables[19] + n).to_s, 51)
+    $game_variables[19] += n
+  end
+
+  def self.gain_pot(n)
+    $game_variables[20] += n
+    $game_variables[153] += n
+  end
+
+  # 对话框里一段文字自动换行后占几行（与 Window_Message#refresh 的换行规则相同：内容宽 448）
+  def self.message_rows(text)
+    @measure ||= Bitmap.new(32, 32)
+    text = text.to_s.gsub(/\\[Vv]\[([0-9]+)\]/) { $game_variables[$1.to_i].to_s }
+                    .gsub(/\\[Nn]\[([0-9]+)\]/) { ($game_actors[$1.to_i]&.name).to_s }
+                    .gsub(/\\[Cc]\[[0-9]+\]|\\[Gg]/, '')
+    text.chomp.split("\n", -1).sum do |line|
+      rows, x = 1, 0
+      line.each_char do |c|
+        w = @measure.text_size(c).width
+        if x + 4 + w > 448
+          rows += 1
+          x = 0
+        end
+        x += w
+      end
+      rows
+    end
+  end
+
+  # 战利品：开打前掷好，名字写进 $trea1～4 给战斗结算窗口显示
+  def self.data_of(kind)
+    { item: $data_items, weapon: $data_weapons, armor: $data_armors }.fetch(kind)
+  end
+
+  def self.roll_loot(loot)
+    @loot = loot.select { |_, _, _, chance| chance.nil? || rand(100) < chance }
+    names = (0...4).map { |i| (k = @loot[i]) ? data_of(k[0])[k[1]].name : '' }
+    $trea1, $trea2, $trea3, $trea4 = names
+  end
+
+  def self.give_loot
+    (@loot || []).each do |kind, id, n|
+      case kind
+      when :item then $game_party.gain_item(id, n || 1)
+      when :weapon then $game_party.gain_weapon(id, n || 1)
+      when :armor then $game_party.gain_armor(id, n || 1)
+      end
+    end
+    @loot = nil
+  end
+
+  def self.gain_morality(n)
+    $game_variables[160] = [[$game_variables[160] + n, 0].max, 255].min
+  end
 
   class << self
-    attr_reader :maps, :edits, :enemies, :weapons, :skills, :items, :variable_names, :common_events
+    attr_reader :maps, :edits, :enemies, :weapons, :armors, :skills, :items, :variable_names, :common_events
 
     # 新公共事件（编号接着原版连续，从 26 起）。物品的 common_event_id 指向它时，使用物品就执行它。
     #   WebMod.common_event 26, '使用-无相残卷' do |c| ... end
@@ -59,6 +119,18 @@ module WebMod
       raise ArgumentError, "WebMod.common_event #{id}：新编号要从 26 开始" if id < 26
       raise ArgumentError, "WebMod.common_event #{id}：重复定义" if @common_events[id]
       @common_events[id] = { name: name, block: block }
+    end
+
+    # 不需要固定编号的公共事件（江湖奇遇等由程序启动的事件），编号在读取时接着排。
+    #   WebMod.auto_common_event(:奇遇_1, '奇遇-山贼劫道') { |c| ... }
+    #   WebMod.auto_common_event_id(:奇遇_1)  # => 读取后分到的编号
+    def auto_common_event(key, name, &block)
+      raise ArgumentError, "WebMod.auto_common_event #{key}：重复定义" if @auto_events[key]
+      @auto_events[key] = { name: name, block: block }
+    end
+
+    def auto_common_event_id(key)
+      @auto_event_ids[key]
     end
 
     # 给变量起名。新武功（武功编号就是变量编号）在技能窗口、练功、师傅列表里显示的就是这个名字
@@ -98,6 +170,12 @@ module WebMod
 
     def skill(id, like:, **attrs)
       define_record(@skills, 'Skills', 28, id, like, attrs)
+    end
+
+    # 新防具，编号从 32 起。kind（部位）：0 鞋 1 头饰 2 外衣 3 盔甲（模板的部位不对时要写）
+    #   WebMod.armor 32, like: 4, name: '斗笠', kind: 1, pdef: 4, price: 120, description: '……'
+    def armor(id, like:, **attrs)
+      define_record(@armors, 'Armors', 32, id, like, attrs)
     end
 
     # 新物品，编号从 23 起：WebMod.item 23, like: 19, name: '……', description: '……'
@@ -188,11 +266,12 @@ module WebMod
         append_records(obj, @weapons, 'Weapons')
       elsif fn.to_s =~ /Skills\.rxdata\z/i
         append_records(obj, @skills, 'Skills')
+      elsif fn.to_s =~ /Armors\.rxdata\z/i
+        append_records(obj, @armors, 'Armors')
       elsif fn.to_s =~ /Items\.rxdata\z/i
         append_records(obj, @items, 'Items')
       elsif fn.to_s =~ /CommonEvents\.rxdata\z/i
-        @common_events.keys.sort.each do |id|
-          d = @common_events[id]
+        build = lambda do |id, d|
           ce = RPG::CommonEvent.new
           ce.id = id
           ce.name = d[:name]
@@ -201,7 +280,12 @@ module WebMod
           ce.list = c.finish
           obj[id] = ce
         end
+        @common_events.keys.sort.each { |id| build.call(id, @common_events[id]) }
         raise ArgumentError, 'WebMod.common_event：编号要连续，现在中间有空位' if (1...obj.size).any? { |i| obj[i].nil? }
+        @auto_events.each do |key, d|
+          @auto_event_ids[key] = obj.size
+          build.call(obj.size, d)
+        end
       elsif fn.to_s =~ /System\.rxdata\z/i
         @variable_names.each do |id, name|
           raise ArgumentError, "WebMod.variable_name #{id}：原版已有名字“#{obj.variables[id]}”" unless obj.variables[id].to_s.empty?
@@ -266,7 +350,7 @@ module WebMod
   # 地图构建器：WebMod.map / WebMod.edit 的块参数
   #--------------------------------------------------------------------------
   class Builder
-    attr_reader :map, :map_id, :tile_edits, :touched_events
+    attr_reader :map, :map_id, :tile_edits, :touched_events, :stocked_events
 
     def initialize(map, map_id, first_event_id)
       @map = map
@@ -274,6 +358,7 @@ module WebMod
       @next_id = [first_event_id, (map.events.keys.max || 0) + 1].max
       @tile_edits = []
       @touched_events = []
+      @stocked_events = []
     end
 
     # 给原版 NPC 换上新的交谈内容。who 是事件编号或 NPC 名字（地图上唯一）。
@@ -429,6 +514,28 @@ module WebMod
       add_corpse_page(e, fight[:corpse] || 508) if fight
       e
     end
+    # 给原版商人加货：who 是事件编号或名字，goods 同 npc 的 shop
+    #   m.goods '何铁手', [[:weapon, 37]]
+    def goods(who, goods)
+      e = find_event(who)
+      done = 0
+      e.pages.each do |pg|
+        list = pg.list
+        i = list.index { |c| c.code == 302 } or next
+        j = i + 1
+        j += 1 while list[j] && list[j].code == 605
+        add = goods.map do |kind, id|
+          raise ArgumentError, "goods 种类应是 :item / :weapon / :armor" unless SHOP_KINDS[kind]
+          RPG::EventCommand.new(605, list[i].indent, [SHOP_KINDS[kind], id])
+        end
+        list.insert(j, *add)
+        done += 1
+      end
+      raise ArgumentError, "地图 #{@map_id} 的 #{e.name}：不是商人" if done == 0
+      @stocked_events << e.id
+      e
+    end
+
     # 传送点：主角踩上去时播放 Move 音效并传送（与原版 EV 事件相同）。
     #   to：[地图, x, y]；dir：传送后朝向，0 保持 2 下 4 左 6 右 8 上
     def door(x, y, to:, dir: 0)
@@ -566,6 +673,23 @@ module WebMod
       cmd(ITEM_CODES.fetch(kind), id, 1, 0, n)
     end
 
+    # 金钱：负数为减少（不会扣成负数）。原版的金钱校验在 gain_gold 里同步
+    def gold(n)
+      n >= 0 ? cmd(125, 0, 0, n) : cmd(125, 1, 0, -n)
+    end
+
+    # 经验 / 潜能 / 道德 / 追杀数，同步原版的校验变量（152 经验、153 潜能），否则会被判作弊
+    #   c.reward exp: 300, pot: 100, morality: -5, wanted: 1
+    def reward(exp: 0, pot: 0, morality: 0, wanted: 0)
+      lines = []
+      lines << "WebMod.gain_exp(#{exp.to_i})" if exp != 0
+      lines << "WebMod.gain_pot(#{pot.to_i})" if pot != 0
+      lines << "WebMod.gain_morality(#{morality.to_i})" if morality != 0
+      lines << "$game_variables[159]=[$game_variables[159]+#{wanted.to_i},0].max" if wanted != 0
+      script lines.join("\n") unless lines.empty?
+      self
+    end
+
     # 战斗：win / escape / lose 是各分支要执行的 lambda（可省略）
     def battle(troop_id, can_escape: true, can_lose: true, win: nil, escape: nil, lose: nil)
       cmd(301, troop_id, can_escape, can_lose)
@@ -573,6 +697,24 @@ module WebMod
       cmd(602); nested { escape&.call }
       cmd(603); nested { lose&.call }
       cmd(604)
+    end
+
+    # 打一场（江湖奇遇等事件里用）。敌人编号同敌群编号。
+    #   loot：[[:armor, 32], [:weapon, 35, 1, 20]]，第 4 项是掉落几率（%，不写为 100），最多 4 种；
+    #         开打前就掷好，结算窗口显示实际掉落的东西
+    #   win：打赢后（无论杀不杀），killed / spared：打赢后选了“劈” / “不劈”；lose：打输；escape：逃走
+    def fight(enemy_id, loot: [], can_escape: true, win: nil, killed: nil, spared: nil, escape: nil, lose: nil)
+      raise ArgumentError, "fight #{enemy_id}：loot 最多 4 种" if loot.size > 4
+      loot.each { |kind, *| raise ArgumentError, "fight #{enemy_id}：loot 种类应是 :item / :weapon / :armor" unless ITEM_CODES[kind] }
+      script "WebMod.roll_loot(#{loot.inspect})"
+      battle(enemy_id, can_escape: can_escape, can_lose: true,
+        win: lambda {
+          script 'WebMod.give_loot'
+          if_switch(95) { killed&.call }.else { spared&.call }
+          switch(95, false)
+          win&.call
+        },
+        escape: escape, lose: lose)
     end
 
     # 选项。块对每个选项调用一次，参数是选项下标；取消键进入单独的取消分支（与原版 NPC 一致）
@@ -635,6 +777,17 @@ module WebMod
 
     def if_good(&block)                    # 道德值 ≥ 128（原版的正邪分界）
       if_variable(160, 128, 1, &block)
+    end
+
+    def if_gold(n, &block)                 # 身上银两 ≥ n
+      if_script("$game_party.gold>=#{n.to_i}", &block)
+    end
+
+    def if_has(kind, id, n = 1, &block)    # 身上有某件东西（本作装备着的东西仍算在背包里）
+      code = { item: 'item_number', weapon: 'weapon_number', armor: 'armor_number' }[kind] or
+        raise(ArgumentError, 'if_has 种类应是 :item / :weapon / :armor')
+      code = "$game_party.#{code}(#{id})>=#{n}"
+      if_script(code, &block)
     end
 
     # 条件分歧的 else 部分。必须紧跟在 if_* 之后调用。
