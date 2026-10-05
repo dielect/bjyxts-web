@@ -136,6 +136,7 @@ def build_scripts():
             # 江湖奇遇与装备特效的引擎（内容同样写在 src/game/mods）
             out.append(['web:江湖奇遇', open(os.path.join(ROOT, 'src', 'game', 'web_encounters.rb'), encoding='utf-8').read()])
             out.append(['web:装备特效', open(os.path.join(ROOT, 'src', 'game', 'web_gear.rb'), encoding='utf-8').read()])
+            out.append(['web:生活', open(os.path.join(ROOT, 'src', 'game', 'web_life.rb'), encoding='utf-8').read()])
             for mod in sorted(glob.glob(os.path.join(ROOT, 'src', 'game', 'mods', '*.rb'))):
                 out.append([f'mod:{os.path.basename(mod)[:-3]}', open(mod, encoding='utf-8').read()])
             # 网页版扩展（前世奇遇 / 数值修改器），必须在 Main 之前载入

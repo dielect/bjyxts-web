@@ -20,8 +20,10 @@
 #    show       看得见的奇遇：{ tile: 841 } 或 { sprite: '行走图' }。抽中后先在主角附近的路边出现一个人或物，
 #               走过去碰到才开始；看见了也可以绕开。不写的是“找上门来”的（伏击、来访），抽中就开始
 #
-#  看得见的奇遇何时回收：触发后、离开这张地图时（无论触发没有）、走开 40 步以后、离得太远（超过 12 格）时。
-#  只有触发了才算发生过（计入冷却、最近记录）。
+#  看得见的奇遇何时回收：离开这张地图时（无论触发没有）一定回收；另外
+#    一次性的（捡东西、救人）触发后就消失；没碰过的走开 40 步、离开 12 格以外也回收；
+#    摆摊的（show: { ..., stay: true }，货郎、骰子摊、郎中）碰过以后留在原地，可以再找，离开地图才回收。
+#  只有触发了才算发生过（计入冷却、最近记录），摆摊的再找几次也只算一次。
 #
 #  节奏：野外每走一步计 2，郊外和镇上计 1，计满 100～180 时有七成几率来一段（大地图约 50～90 步一次）；
 #        刚发生过的两段奇遇不会紧接着重复（池里只剩它们时除外）；
@@ -240,12 +242,22 @@ module WebEncounter
       true
     end
 
-    # 碰到了：这才算发生过；人物马上消失，等事件跑完再收拾
+    # 碰到了：这才算发生过（摆摊的只记第一次）。一次性的人物马上消失，等事件跑完再收拾
     def claim(id)
-      record(@list.fetch(id))
+      e = @list.fetch(id)
+      f = @figure
+      record(e) unless f && f[:met]
+      f[:met] = true if f
+      return if e[:show] && e[:show][:stay]
       ev = $game_map.events[FIGURE_ID]
       ev.erase if ev
-      @figure[:claimed] = true if @figure
+      f[:claimed] = true if f
+    end
+
+    # 这一次出现期间要保持不变的东西（例如货郎的货），换了地图就重新来
+    def figure_memo(key)
+      return yield unless @figure
+      (@figure[:memo] ||= {})[key] ||= yield
     end
 
     # 回收：触发完、换了地图、走远了、过了太久
@@ -256,9 +268,11 @@ module WebEncounter
         return
       end
       return if $game_system.map_interpreter.running?
+      return remove_figure if f[:claimed]
+      return if f[:met]                            # 摆摊的碰过以后一直留着，换地图才走
       ev = $game_map.events[FIGURE_ID]
       far = ($game_player.x - ev.x).abs + ($game_player.y - ev.y).abs > FIGURE_FAR
-      remove_figure if f[:claimed] || f[:life] <= 0 || far
+      remove_figure if f[:life] <= 0 || far
     end
 
     def remove_figure

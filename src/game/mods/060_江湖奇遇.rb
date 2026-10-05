@@ -273,7 +273,7 @@ dice = lambda do |c, bet|
   end
 end
 
-WebEncounter.add 6, '骰子摊', show: { tile: 847 }, where: :town, weight: 3, cooldown: 2 do |c|
+WebEncounter.add 6, '骰子摊', show: { tile: 847, stay: true }, where: :town, weight: 3, cooldown: 2 do |c|
   c.text '街角围着一圈人，一个尖嘴猴腮的汉子摇着骰盅，哗啦哗啦响。'
   c.text '“押大押小，买定离手！”'
   c.choices(%w[押一百两 押五百两 走开]) do |i|
@@ -428,7 +428,7 @@ end
 # 28 游方郎中：受了伤更容易遇到（气血不到一半时最常见，满血时不出现）
 #   治好气血，也把受伤掉的气血上限补回来。道德很高的不收钱
 #--------------------------------------------------------------------------
-WebEncounter.add 28, '游方郎中', show: { tile: 847 }, where: %i[wild suburb], cooldown: 2,
+WebEncounter.add 28, '游方郎中', show: { tile: 847, stay: true }, where: %i[wild suburb], cooldown: 2,
                  weight: -> { r = WebEncounter.hp_rate; r < 0.5 ? 8 : r < 0.8 ? 2 : 0 } do |c|
   c.text '一个背着药箱的游方郎中拦住你，皱着眉看了看你的脸色：“这位客官，伤得不轻啊。”'
   c.if_variable(160, 200, 1) do

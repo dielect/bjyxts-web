@@ -30,8 +30,9 @@ module WebJianghu
 
   module_function
 
+  # 每次出现时定好的 3 件货：同一次反复打开商店看到的都一样，换了地图（货郎走了）才换
   def peddler_stock
-    PEDDLER.sample(3).sort
+    WebEncounter.figure_memo(:stock) { PEDDLER.sample(3).sort }
   end
 
   def heifeng_done?
@@ -42,7 +43,7 @@ end
 #--------------------------------------------------------------------------
 # 11 江湖货郎
 #--------------------------------------------------------------------------
-WebEncounter.add 11, '江湖货郎', show: { tile: 863 }, where: %i[wild suburb], weight: -> { WebEncounter.gold >= 20000 ? 4 : 2 }, cooldown: 3 do |c|
+WebEncounter.add 11, '江湖货郎', show: { tile: 863, stay: true }, where: %i[wild suburb], weight: -> { WebEncounter.gold >= 20000 ? 4 : 2 }, cooldown: 3 do |c|
   c.text '一个挑着货担的货郎摇着拨浪鼓走过来：“走过路过，别错过！今儿个有几样稀罕货！”'
   c.choices(%w[看看货 不用了]) do |i|
     if i == 0

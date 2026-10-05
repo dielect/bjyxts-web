@@ -195,7 +195,9 @@ module WebMod
       define_record(@skills, 'Skills', 28, id, like, attrs)
     end
 
-    # 新防具，编号从 32 起。kind（部位）：0 鞋 1 头饰 2 外衣 3 盔甲（模板的部位不对时要写）
+    # 新防具，编号从 32 起。kind（部位）：0 鞋 1 头饰 2 外衣 3 盔甲 4 披风 5 腰带 6 钓竿。
+    # 用 19 披风、30 牛皮束带、31 钓竿当模板时一定要写 kind：原版按编号认定它们的部位
+    # （012 Data_String 重写了 Armor#kind），数据里存的是 0，复制过来会变成鞋
     #   WebMod.armor 32, like: 4, name: '斗笠', kind: 1, pdef: 4, price: 120, description: '……'
     def armor(id, like:, **attrs)
       define_record(@armors, 'Armors', 32, id, like, attrs)
@@ -373,7 +375,7 @@ module WebMod
   # 地图构建器：WebMod.map / WebMod.edit 的块参数
   #--------------------------------------------------------------------------
   class Builder
-    attr_reader :map, :map_id, :tile_edits, :touched_events, :stocked_events
+    attr_reader :map, :map_id, :tile_edits, :touched_events, :stocked_events, :rewritten_events
 
     def initialize(map, map_id, first_event_id)
       @map = map
@@ -382,6 +384,7 @@ module WebMod
       @tile_edits = []
       @touched_events = []
       @stocked_events = []
+      @rewritten_events = []
     end
 
     # 给原版 NPC 换上新的交谈内容。who 是事件编号或 NPC 名字（地图上唯一）。
@@ -564,6 +567,15 @@ module WebMod
       add_corpse_page(e, fight[:corpse] || 508) if fight
       e
     end
+    # 重写原版事件第 1 页的指令（外观、触发方式不变），用于原版的机关类事件（例如南郊的两个钓点）。
+    # NPC 的台词请用 talk，不要用它
+    def rewrite(who, &block)
+      e = find_event(who)
+      e.pages[0].list = Commands.new.tap { |c| block.call(c) }.finish
+      @rewritten_events << e.id
+      e
+    end
+
     # 给原版商人加货：who 是事件编号或名字，goods 同 npc 的 shop
     #   m.goods '何铁手', [[:weapon, 37]]
     def goods(who, goods)
@@ -660,6 +672,12 @@ module WebMod
     # 一页对话（消息窗口会自动换行）
     def text(s)
       cmd(101, s)
+    end
+
+    # 一页内容在运行时才决定的对话：expr 是一段 Ruby 表达式，结果是要显示的文字
+    #   c.say 'WebLife.landed_text'
+    def say(expr)
+      script "web_say(#{expr})"
     end
 
     # 脚本：多行时第一行用 355，后续行用 655
@@ -798,9 +816,11 @@ module WebMod
       branch([1, id, 0, value, cmp], &block)
     end
 
-    # 条件分歧：脚本（结果为真时执行）
+    # 条件分歧：脚本（结果为真时执行）。
+    # 原版的条件分歧只认严格的 true / false：结果是 31 这类“真值”时“是”和“否则”两段都会被跳过，
+    # 所以这里一律转成布尔值
     def if_script(code, &block)
-      branch([12, code], &block)
+      branch([12, "!!(#{code})"], &block)
     end
 
     def finish
@@ -886,6 +906,19 @@ module WebMod
       nested(&block)
       cmd(412)
     end
+  end
+end
+
+#--------------------------------------------------------------------------
+# c.say 的执行：和 101 显示文章一样设置对话内容，并让解释器等玩家看完再往下走
+#   （脚本返回 false 时原版会在下一帧重跑同一条指令，所以这里一定返回 true）
+#--------------------------------------------------------------------------
+class Interpreter
+  def web_say(text)
+    @message_waiting = true
+    $game_temp.message_proc = Proc.new { @message_waiting = false }
+    $game_temp.message_text = text.to_s + "\n"
+    true
   end
 end
 

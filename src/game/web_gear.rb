@@ -463,6 +463,7 @@ module WebGear
       lines = []
       if kind
         (kind == :weapon ? @weapons : @armors).fetch(item.id, []).each { |e| lines << effect_line(e) }
+        lines.concat(WebLife.rod_lines(item.id)) if kind == :armor && defined?(WebLife)
         if (s = set_of(kind, item.id))
           n = set_count(s)
           lines << "【#{s[:name]}套 #{n}/#{s[:pieces].size}】#{s[:pieces].map { |alts| alts.map { |k, i| (k == :weapon ? $data_weapons : $data_armors)[i].name }.join('或') }.join('、')}"

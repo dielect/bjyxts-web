@@ -70,7 +70,12 @@ module ModCheck
       b = WebMod::Builder.new(WebMod.raw_load(path(id)), id, WebMod::FIRST_EDIT_EVENT_ID)
       WebMod.edits[id].each { |blk| blk.call(b) }
       raw.events.each do |eid, e|
-        if b.stocked_events.include?(eid)
+        if b.stocked_events.include?(eid) && b.touched_events.include?(eid)
+          errors << "地图 #{id} 的原版事件 #{eid}（#{e.name}）除商品和交谈外被改动" unless cur.events[eid] && dump(without_talk(without_goods(cur.events[eid]))) == dump(without_talk(without_goods(e)))
+        elsif b.rewritten_events.include?(eid)
+          same = lambda { |ev| x = Marshal.load(Marshal.dump(ev)); x.pages.each { |pg| pg.list = [] }; dump(x) }
+          errors << "地图 #{id} 的原版事件 #{eid}（#{e.name}）除第 1 页指令外被改动" unless cur.events[eid] && same.call(cur.events[eid]) == same.call(e)
+        elsif b.stocked_events.include?(eid)
           errors << "地图 #{id} 的原版事件 #{eid}（#{e.name}）除商品外被改动" unless cur.events[eid] && dump(without_goods(cur.events[eid])) == dump(without_goods(e))
         elsif b.touched_events.include?(eid)
           errors << "地图 #{id} 的原版事件 #{eid}（#{e.name}）除交谈内容外被改动" unless cur.events[eid] && dump(without_talk(cur.events[eid])) == dump(without_talk(e))
@@ -215,7 +220,7 @@ check('一、实际内容');
         end
         added.each do |e|
           name = e.instance_variable_get(:@event).name
-          ok = if e.trigger == 0
+          ok = if e.trigger.nil? || e.trigger == 0          # 没有生效页（开关没开）的按站在旁边算
                  [[0, 1], [0, -1], [1, 0], [-1, 0]].any? { |dx, dy| seen[[e.x + dx, e.y + dy]] } || seen[[e.x, e.y]]
                else
                  seen[[e.x, e.y]]

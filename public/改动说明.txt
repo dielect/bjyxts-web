@@ -6,6 +6,16 @@
 新增类格式：类名/类的作用；方法：“方法名：用途”；属性：“属性：用途”
 行数指原工程（PC V1.21 导出脚本，见 game-src/scripts）中的行号。
 
+2026-10-05 生活试点：钓鱼、熟客、订单；摆摊奇遇留在原地；条件分歧修正
+---------------------------------------------------------
+src/game/web_life.rb/新增/WebLife 模块：按原版时间规则的日历（一年 3000、一季 750、一天约 8.3）、存档数据（$game_system 的 @web_life）、钓鱼（水域、季节、稀有度、钓竿效果、熟练度）、订单、鱼谱画面 Scene_FishBook。构建时作为脚本「web:生活」紧接 web:装备特效 载入。
+src/game/mods/110_钓鱼与客栈.rb/新增/鱼 28～38、香饵 39、鱼谱 40、钓竿 107～112、公共事件 28；改写南郊鱼塘原版的两个钓点（地图 13 事件 8、9 的第 1 页指令）；冰火岛渡口加两处钓位；荷西、客栈厨师的交谈（override，原有的鲤鱼换女儿红、猪肉换宝刀保留）；荷西添卖钓竿、香饵；客栈菜牌（开关 150）。
+src/game/web_mods.rb/修正/if_script 的条件一律转成布尔值：原版条件分歧只认严格的 true / false，结果是 31 这类真值时“是”和“否则”两段都会被跳过（钓点因此按确定没反应）。
+src/game/web_mods.rb/新增/c.say（运行时决定内容的一页对话，Interpreter#web_say）；m.rewrite（重写原版机关事件第 1 页的指令）；新防具用 19、30、31 当模板时要写明 kind（原版 012 Data_String 按编号认定它们的部位，数据里存的是 0）。
+src/game/web_gear.rb/Window_Item 说明页/钓竿显示【钓竿】效果。
+src/game/web_encounters.rb/修正/摆摊的奇遇（货郎、骰子摊、郎中，show 加 stay: true）碰过以后留在原地，离开地图才回收；原先一碰就标记为已触发，打开商店再回来货郎就不见了。货郎的货每次出现定好一次（figure_memo）。
+tools/life-test.mjs/新增/日历、鱼与钓竿、钓鱼流程、鱼谱、荷西交情与礼物（含一次跨多档）、订单、存档往返、摆摊奇遇。mod-maps-test 支持 rewrite 与“添货 + 改台词”同一个 NPC、没有生效页的事件。
+
 2026-10-05 老叫花、棍棒摊主换用重绘稿
 ------------------------------
 game-src/Graphics/Characters、Battlers 的 Npc_OldBeggar.png、Npc_StaffVendor.png/重新生成/改由 assets/npcs/32x32/old-beggar-v4-redraw.png、staff-vendor-v3-redraw.png 生成（由 assets/reviews/crisp-redraw 的重绘稿缩成 32×32），文件名不变。石桌棋局不变。
