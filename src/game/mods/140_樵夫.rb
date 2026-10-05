@@ -63,7 +63,7 @@ end
   [78, '山参',   800, '一支须根齐全的老山参。可以吃'],
   [79, '雪莲',   1000, '雪山顶上的雪莲，一年才开一回。可以吃'],
 ].each do |id, name, price, text|
-  edible = { 78 => 51, 79 => 52 }[id]
+  edible = { 74 => 55, 78 => 51, 79 => 52 }[id]          # 草药读过本草纲目才会用（公共事件 55 在 150_书生.rb）
   WebMod.item id, like: 21, name: name, price: price, description: text,
               **(edible ? { common_event_id: edible, occasion: 2, consumable: true } : {})
 end

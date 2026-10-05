@@ -53,6 +53,7 @@ PATCHES = [
     ('090', '@name.bitmap=Bitmap.new(n.size*8,24)', '@name.bitmap=Bitmap.new(n.bytesize*8,24)', 1),
     ('090', 'draw_text(0, 0, n.size*12, 24, n)', 'draw_text(0, 0, n.bytesize*8, 24, n)', 1),
     # 扩展物品的公共事件（26 起）和原版秘籍一样回到地图执行，否则对话在物品画面里显示不出来
+    ('092', 'a=@item.common_event_id', 'a=@item.common_event_id\n            $web_used_item=@item.id', 1),
     ('092', 'if (a>=19 and a<=22) or a==9', 'if (a>=19 and a<=22) or a==9 or a>=26', 1),
     # 对话后紧跟选项时，按自动换行后的实际行数安排选项位置（原版只数事件里的行数，长句换行后选项会压住文字）
     ('080', 'if @list[@index+1].parameters[0].size <= 4 - line_count', 'line_count = WebMod.message_rows($game_temp.message_text)\n          if @list[@index+1].parameters[0].size <= 4 - line_count', 1),

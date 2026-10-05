@@ -223,10 +223,14 @@ WebGear.set :六扇门, '六扇门',
 WebGear.set :鸳鸯, '鸳鸯',
   pieces: [[:weapon, 49], [:armor, 57]],
   tiers: { 2 => [[:cost, ratio: 0.5, skills: [27]], [:power, ratio: 0.1]] }
+# 书生：后三件是书生路线加的（150_书生.rb：云头履、王大娘的玉佩、书箱），4～6 件的效果也给读书、代写用
 WebGear.set :书生, '书生',
-  pieces: [[:weapon, 68], [:armor, 49], [:armor, 64]],
+  pieces: [[:weapon, 68], [:armor, 49], [:armor, 64], [:armor, 116], [:armor, 117], [:armor, 118]],
   tiers: { 2 => [[:level, skill: 48, n: 20]],
-           3 => [[:cost, ratio: 0.15, skills: :all]] }
+           3 => [[:cost, ratio: 0.15, skills: :all]],
+           4 => [[:custom, key: :read_more, value: 1, text: '一天多读两章']],
+           5 => [[:custom, key: :write_pay, value: 0.3, text: '代写报酬+30%']],
+           6 => [[:custom, key: :tale_double, value: 1, text: '话本、史书的阅历加倍']] }
 # 渔樵：钓竿位任一钓竿算一件；第 4 件是能当兵器的鱼竿（120_渔隐.rb）
 WebGear.set :渔樵, '渔樵',
   pieces: [[:armor, 32], [:armor, 72], [[:armor, 31], *(107..112).map { |i| [:armor, i] }], [[:weapon, 74], [:weapon, 75]]],

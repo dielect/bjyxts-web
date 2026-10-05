@@ -913,12 +913,39 @@ end
 # c.say 的执行：和 101 显示文章一样设置对话内容，并让解释器等玩家看完再往下走
 #   （脚本返回 false 时原版会在下一帧重跑同一条指令，所以这里一定返回 true）
 #--------------------------------------------------------------------------
+#   紧跟着的是选项、并且放得下时，和 101 一样把选项并进同一个对话框（问题和选项一起看得见）
+#
+# 选项的文字也可以在运行时决定：标签写成 {0}、{1}……，事件里先用 WebMod.choice_labels = [...] 给出实际文字
+#   c.script 'WebMod.choice_labels = WebLife.quiz_options'
+#   c.choices(%w[{0} {1} {2}]) { |i| ... }
+#--------------------------------------------------------------------------
+module WebMod
+  class << self
+    attr_accessor :choice_labels
+  end
+end
+
 class Interpreter
   def web_say(text)
     @message_waiting = true
     $game_temp.message_proc = Proc.new { @message_waiting = false }
     $game_temp.message_text = text.to_s + "\n"
+    nxt = @list[@index + 1]
+    if nxt && nxt.code == 102
+      rows = WebMod.message_rows($game_temp.message_text)
+      if nxt.parameters[0].size <= 4 - rows
+        @index += 1
+        $game_temp.choice_start = rows
+        setup_choices(nxt.parameters)
+      end
+    end
     true
+  end
+
+  alias __webmod_setup_choices setup_choices
+  def setup_choices(parameters)
+    labels = parameters[0].map { |t| t =~ /\A\{(\d+)\}\z/ ? (WebMod.choice_labels || [])[$1.to_i].to_s : t }
+    __webmod_setup_choices([labels, parameters[1]])
   end
 end
 

@@ -478,6 +478,108 @@ check.call(!e29[:cond].call, '拿到宣花大斧后不再遇到')
 a.equip(0, 0)
 a.equip(0, 0)
 
+# ---------------------------------------------------------------- 书生
+fresh.call
+$game_switches.instance_variable_get(:@data).fill(false) rescue nil
+$game_variables[48] = 1; $game_variables[13] = 20; $game_variables[19] = 3000000
+check.call(!L.scholar?, '没入行')
+L.enter_scholar
+check.call(L.scholar? && $game_party.item_number(102) == 1 && $game_party.item_number(83) >= 1, '入行：书目、三字经')
+check.call(L::BOOKS.size == 19 && L::BOOKS.values.all? { |b| b[:quiz].all? { |q, o| o.size == 3 && WebMod.message_rows(q) == 1 } }, '十九本书，小题都是一行三个选项')
+check.call(L::BOOKS.keys.all? { |id| $data_items[id].common_event_id == 53 && !$data_items[id].consumable }, '书在物品栏里打开就读，不会读掉')
+# 读一章
+$web_used_item = 85
+L.start_read
+L.instance_variable_set(:@read_interlude, nil); L.instance_variable_set(:@quiz, nil)
+art0 = $game_variables[48]
+t = L.read_chapter
+check.call(L.books_read[85] == 1 && L.book_skill > 0 && t.include?('第1章'), "读一章：#{t}")
+check.call($game_variables[48] > art0, "读书长读书识字：#{art0} → #{$game_variables[48]}")
+# 小题：选项打乱，答对多读一章
+L.instance_variable_set(:@quiz, L::BOOKS[85][:quiz][0])
+q = L.quiz_text
+right = WebMod.choice_labels.index('不亦说乎')
+check.call(q.include?('学而时习之') && WebMod.choice_labels.sort == %w[不亦说乎 不亦乐乎 人不知而不愠].sort, '小题的选项')
+check.call(L.answer(right).include?('对了'), '答对了')
+L.instance_variable_set(:@read_interlude, nil)
+L.read_chapter
+check.call(L.books_read[85] == 3, "答对多读一章：#{L.books_read[85]}")
+L.instance_variable_set(:@quiz, L::BOOKS[85][:quiz][1]); L.quiz_text
+check.call(L.answer((WebMod.choice_labels.index('必有我师焉') + 1) % 3).include?('必有我师焉'), '答错告诉你答案')
+# 一天六章
+check.call(L.eyes_used == 2, "今天读了 #{L.eyes_used} 章")
+4.times { L.start_read; L.instance_variable_set(:@read_interlude, nil); L.read_chapter if $game_variables[9] == 1 }
+L.start_read
+check.call($game_variables[9] == 2 && L.tired_text.include?('明天'), '一天最多六章')
+$game_variables[158] += 9
+L.start_read
+check.call($game_variables[9] == 1, '第二天又能读了')
+# 读通的收获：每本都试一遍
+L::BOOKS.each do |id, b|
+  data_eyes = L.data[:eyes] = nil
+  $web_used_item = id
+  L.books_read[id] = b[:chapters] - 1
+  L.start_read; L.instance_variable_set(:@read_interlude, nil); L.instance_variable_set(:@quiz, nil)
+  pot0, moral0, wit0 = $game_variables[20], $game_variables[160], $game_variables[13]
+  t = L.read_chapter
+  check.call(L.book_done?(id) && t.size > 20, "读通《#{b[:name]}》：#{t}")
+  case b[:reward][0]
+  when :tale, :pot then check.call($game_variables[20] - pot0 == b[:reward][1], "《#{b[:name]}》给潜能")
+  when :wit then check.call($game_variables[13] == wit0 + 1, '易经加悟性')
+  when :moral then check.call($game_variables[160] >= moral0, '经书加道德')
+  end
+end
+check.call(L.books_done == 19, '全部读通')
+# 读书识字只读到 100 级
+$game_variables[48] = 100
+L.data[:eyes] = nil; $web_used_item = 95; L.start_read; L.instance_variable_set(:@read_interlude, nil); L.read_chapter
+check.call($game_variables[48] == 100, '读书识字读到 100 级为止')
+$game_variables[48] = 1
+# 本草纲目读通后草药能用（公共事件 55 判断）
+check.call(L.book_done?(92) && $data_items[74].common_event_id == 55, '草药接公共事件 55')
+# 书生套 4 件多读两章（原有三件 + 云头履）
+a.equip(0, 68); a.equip(2, 49); a.equip(3, 64); a.equip(1, 116)
+check.call(L.eyes_max == 8, "书生套 4 件：一天 #{L.eyes_max} 章")
+a.equip(0, 0); a.equip(2, 0); a.equip(3, 0); a.equip(1, 0)
+# ---- 代写
+fresh.call
+L.enter_scholar
+$game_variables[158] = 0
+3.times { L.start_write; check.call($game_variables[9] == 1, '有客人'); L.writ_question; L.write(0) }
+L.start_write
+check.call($game_variables[9] == 2, '一天最多三位客人')
+srand(3)
+kinds = 200.times.map { $game_variables[158] += 9; L.start_write; w = L.instance_variable_get(:@writ)[0]; (L.writ_question; L.write(0)) if w == :wang; w }
+check.call(!kinds.include?(:couplet1) && !kinds.include?(:love), '不是冬天没有春联，没读诗经没有情书')
+check.call(L.wang[:favor] >= 5 && $game_party.armor_number(117) == 1, "王大娘写满五封，儿子回来送玉佩（#{L.wang[:favor]} 封）")
+$game_variables[158] = 3 * 750 + 10
+L.books_read[87] = L::BOOKS[87][:chapters]
+kinds = 200.times.map { $game_variables[158] += 1; L.data[:writes] = nil; L.start_write; L.instance_variable_get(:@writ)[0] }
+check.call(kinds.include?(:couplet1) && kinds.include?(:love), '冬天有春联，读过诗经有情书')
+L.data[:writes] = nil
+L.start_write
+q = L.writ_question
+right = WebMod.choice_labels.index(L.instance_variable_get(:@writ)[4][0])
+g0 = $game_party.gold
+L.write(right)
+full = $game_party.gold - g0
+L.data[:writes] = nil; L.start_write; L.writ_question
+L.instance_variable_set(:@writ, L.instance_variable_get(:@writ))
+wrong = (L.instance_variable_get(:@writ_answer) + 1) % 3
+g0 = $game_party.gold
+t = L.write(wrong)
+check.call(full > 0 && t.include?('该写'), "写对全价 #{full}，写错打折：#{t}")
+check.call(WebMod.message_rows(L::WRITS.map { |w| w[3] }.max_by(&:size)) == 1, '代写的题目都在一行内')
+# ---- 选项文字可以运行时决定；c.say 后面的选项并进同一个对话框
+$game_temp.message_text = ''
+WebMod.choice_labels = %w[甲 乙 丙]
+it = Interpreter.new
+it.instance_variable_set(:@list, [RPG::EventCommand.new(355, 0, ['x']), RPG::EventCommand.new(102, 0, [%w[{0} {1} {2}], 5])])
+it.instance_variable_set(:@index, 0)
+it.web_say('一行的问题？')
+check.call($game_temp.choice_max == 3 && $game_temp.message_text.include?("乙\n") && it.instance_variable_get(:@index) == 1, "问题和选项在同一个对话框：#{$game_temp.message_text.inspect}")
+$game_temp.message_text = nil; $game_temp.choice_max = 0
+
 errs.empty? ? 'ok' : errs.join("\n")
 `);
 if (out !== 'ok') { console.log(out); process.exit(1); }

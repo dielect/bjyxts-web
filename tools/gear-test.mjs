@@ -21,7 +21,7 @@ end
   d = $data_armors[i]
   check.call(d && d.auto_state_id == 0 && d.int_plus == 0 && d.pdef <= 60 && (0..6).include?(d.kind), "防具 #{i} 不存在或数据不对")
 end
-check.call($data_weapons.size == 80 && $data_armors.size == 116, "编号范围：武器到 #{$data_weapons.size - 1}，防具到 #{$data_armors.size - 1}")
+check.call($data_weapons.size == 80 && $data_armors.size == 119, "编号范围：武器到 #{$data_weapons.size - 1}，防具到 #{$data_armors.size - 1}")
 [[39, 0], [49, 1], [63, 2], [75, 3], [85, 4], [94, 5]].each { |i, k| check.call($data_armors[i].kind == k, "防具 #{i} 部位应为 #{k}") }
 ($data_weapons.compact + $data_armors.compact).each do |d|
   check.call(d.description.bytesize <= 75, "#{d.name} 的描述超过一页（特效说明另起一页）") if d.id >= 32
@@ -63,13 +63,14 @@ scan = lambda do |list|
       src[:weapon] += WebJianghu::HEIFENG.select { |k, _| k == :weapon }.map(&:last) if c.parameters[0].include?('HEIFENG')
       src[:armor] += WebJianghu::HEIFENG.select { |k, _| k == :armor }.map(&:last) if c.parameters[0].include?('HEIFENG')
       if c.parameters[0].include?('peddler_stock')
-        WebJianghu::PEDDLER.each { |k, i| src[k] << i }
+        WebJianghu::PEDDLER.each { |k, i| src[k] << i if src[k] }      # 货郎也卖书（物品）
       end
     end
   end
 end
 ($data_mapinfos.keys).each { |id| load_data(format('/game/Data/Map%03d.rxdata', id)).events.each_value { |e| e.pages.each { |pg| scan.call(pg.list) } } }
 $data_common_events.compact.each { |ce| scan.call(ce.list) }
+src[:armor] << 117                                   # 玉佩：王大娘的儿子回来时在 Ruby 里发（mods/150）
 src[:weapon] += [76, 79]                               # 柴刀：老婆婆劈柴满三次时在 finishtask 里发放（mods/140，Ruby 里发）
 missing = (34...$data_weapons.size).reject { |i| src[:weapon].include?(i) }.map { |i| $data_weapons[i].name } +
           (32...$data_armors.size).reject { |i| src[:armor].include?(i) }.map { |i| $data_armors[i].name }
