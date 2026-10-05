@@ -263,6 +263,75 @@ check.call($data_skills[30].name == '愿者上钩' && $data_skills[31].name == '
 check.call([32, 33, 37, 38].all? { |id| $data_items[id].type == 0 } && $data_items[28].type == 2, '能吃的鱼在物品栏的“食物”里')
 check.call(WebSkill.category(90) == WebSkill::WEAPON && WebSkill.base_of(90) == 44, '太公钓法是鞭类兵刃')
 
+# ---------------------------------------------------------------- 厨子
+fresh.call
+check.call(L::RECIPES.size == 12 && (52..63).all? { |id| $data_items[id].type == 0 && $data_common_events[$data_items[id].common_event_id].name.start_with?('吃-') }, '十二道菜：归食物，各有吃的公共事件')
+check.call(L::RECIPES.values.all? { |r| r[:needs].keys.all? { |i| $data_items[i] } && r[:fx].all? { |e| !WebGear.describe(e).empty? } }, '菜谱的食材和增益都有效')
+# 入行：交满三单鱼
+check.call(!L.kitchen? && !L.kitchen_offer_due?, '没交单不能入行')
+L.cook[:done] = 3
+check.call(L.kitchen_offer_due?, '交满三单可以入行')
+t = L.open_kitchen
+check.call(L.kitchen? && [52, 53, 54, 55].all? { |id| L.known?(id) } && t.include?('鸡汤'), "入行学会四道家常菜：#{t}")
+# 做菜：都对 → 极品两份；都不对 → 普通一份；食材扣掉
+$game_party.gain_item(5, 4)
+srand(7)
+L.data[:skill][:cooking] = 0
+q, n, text = L.cook_dish(54, 2, 2)
+check.call(q == 2 && n == 2 && $game_party.item_number(54) == 2 && $game_party.item_number(5) == 2, "红烧肉先武后文、重口：#{text}")
+q, n, = L.cook_dish(54, 0, 0)
+check.call(q == 0 && n == 1 && $game_party.item_number(5) == 0, '都不对出普通一份')
+check.call(!L.can_cook?(54), '猪肉用完就不能做了')
+check.call(L.cook_skill > 0 && L.cook_title == '学徒', "厨艺：#{L.cook_skill}")
+# 吃菜：增益接进战斗，按场数用完，后吃的覆盖
+a.equip(0, 0); a.instance_variable_set(:@armor1_id, 0)
+before = WebGear.of(:power).size
+t = L.eat_dish(54)
+check.call(WebGear.of(:power).size == before + 1 && t.include?('2场'), "吃红烧肉：#{t}")
+L.meal_battle_done
+check.call(WebGear.of(:power).size == before + 1, '打完一场还剩一场')
+L.meal_battle_done
+check.call(WebGear.of(:power).size == before && L.cook_data[:meal].nil?, '两场后增益用完')
+L.eat_dish(54); L.eat_dish(55)
+check.call(WebGear.of(:power).size == before && WebGear.of(:regen).any?, '后吃的鸡汤覆盖红烧肉')
+L.cook_data[:meal] = nil
+# 其他菜谱来源
+check.call(L.jose_recipes_due? && L.jose_recipes.include?('干煎带鱼') && !L.jose_recipes_due?, '荷西教海鲜，只一次')
+L.cook[:dishes] = 2
+check.call(L.cook_advanced_due? && L.cook_advanced.include?('清蒸鳜鱼') && L.known?(62), '交过两单菜，厨师教清蒸鳜鱼、酥油茶煮雪鱼')
+# 订单收菜（先钓一条，让收鱼单也开得出来）
+L.land(L::FISH[28])
+srand(1)
+dish_orders = 20.times.map { L.cook_offer_text; o = L.order; L.cancel_order; o[:dish] }.count(true)
+check.call(dish_orders.between?(4, 16), "入行后订单约一半是菜：#{dish_orders}/20")
+L.new_dish_order; o = L.order
+$game_party.gain_item(o[:item], o[:qty])
+L.cook_done_text
+check.call(L.cook[:dishes] == 3 && L.menu_text.include?($data_items[o[:item]].name), "交菜计数、菜牌上有你做的菜：#{L.menu_text}")
+# 熟客独行大侠：不点辣的；三次后远行，二十天后带香料；六次后介绍朋友
+L.learn(56, 61)
+check.call(30.times.all? { L.sword[:want] = nil; !L::RECIPES[L.sword_want][:spicy] }, '独行大侠从不点辣菜')
+L.cook_data[:recipes] -= [56, 61]
+3.times do
+  w = L.sword_want; $game_party.gain_item(w, 1)
+  check.call(L.sword_can_serve?, '有他想吃的菜就能端上去')
+  L.serve_sword
+end
+check.call(L.sword[:away] && !L.sword_can_serve? && L.sword_line.include?('出趟远门'), '吃了三次后出远门')
+$game_variables[158] += 170                                    # 二十天
+t = L.sword_line
+check.call(t.include?('香料') && L.known?(56) && L.known?(61) && $game_party.item_number(64) >= 3, "回来带香料、学会香辣菜：#{t}")
+check.call(L.sword_line.include?('不要辣'), '记得他不吃辣')
+3.times { w = L.sword_want; $game_party.gain_item(w, 1); L.serve_sword }
+check.call(L.flag?(:sword_friends), '吃了六次后介绍朋友')
+L.new_dish_order
+check.call(L.order[:pay] >= $data_items[L.order[:item]].price * L.order[:qty] * 2, '介绍朋友后菜单报酬更高')
+L.cancel_order
+# 漂流瓶里的方子
+srand(5)
+40.times { break if L.known?(63); L.bottle_text }
+check.call(L.known?(63), '漂流瓶偶尔有八宝鱼翅的方子')
+
 errs.empty? ? 'ok' : errs.join("\n")
 `);
 if (out !== 'ok') { console.log(out); process.exit(1); }

@@ -527,3 +527,234 @@ end
 module WebLife
   def self.data_size_fish = FISH.size
 end
+
+#==============================================================================
+# ■ 厨子：菜谱、做菜判定、吃饭增益（内容在 src/game/mods/130_厨子.rb）
+#------------------------------------------------------------------------------
+#  做菜：备齐食材，在灶台上选“火候”（文火 / 武火 / 先武后文）和“调味”（清淡 / 咸鲜 / 重口）。
+#    两样都对 → 极品（出两份），对一样 → 好，都不对 → 普通；厨艺越高，越有机会往上提一档。
+#    每道菜的讲究写在菜谱提示里（“鳜鱼肉嫩，火大了就老”），要琢磨，不是背答案。
+#  吃菜：填饱肚子，并在接下来的几场战斗里带上这道菜的增益（接装备特效引擎，同一时间只算最后吃的一道）。
+#  存档数据：@web_life[:cook] = { recipes: [菜的物品编号], meal: [菜, 剩几场] }，熟练度在 [:skill][:cooking]
+#==============================================================================
+module WebLife
+  HEATS  = %w[文火 武火 先武后文]
+  TASTES = %w[清淡 咸鲜 重口]
+  RECIPES = {}
+  COOK_TITLES = [nil, '学徒', '学徒', '帮厨', '帮厨', '掌勺', '掌勺', '大厨', '大厨', '御厨', '御厨']
+  COOK_STEPS = [0, 8, 20, 36, 56, 80, 110, 145, 185, 230]
+  QUALITY = %w[普通 好 极品]
+
+  class << self
+    # 登记一道菜：id 是做出来的菜（物品）；needs { 食材物品编号 => 数量 }；heat / taste 是 HEATS / TASTES 的下标；
+    # fx 是吃了以后的增益（装备特效写法），battles 管几场战斗；fill 填多少肚子
+    def recipe(id, name:, needs:, heat:, taste:, hint:, fx:, battles: 2, fill: 200, spicy: false)
+      RECIPES[id] = { id: id, name: name, needs: needs, heat: heat, taste: taste, hint: hint,
+                      fx: fx.map { |t, o| (o || {}).merge(type: t) }, battles: battles, fill: fill, spicy: spicy }
+    end
+
+    def cook_data
+      data[:cook] ||= { recipes: [], meal: nil }
+    end
+
+    def known?(id) = cook_data[:recipes].include?(id)
+
+    # 学会菜谱，返回新学会的菜名（都会了返回空串）
+    def learn(*ids)
+      new = ids.reject { |id| known?(id) }
+      cook_data[:recipes].concat(new)
+      new.map { |id| RECIPES[id][:name] }.join('、')
+    end
+
+    def cook_skill = data[:skill][:cooking].to_i
+    def cook_level = COOK_STEPS.count { |n| cook_skill >= n }
+    def cook_title = COOK_TITLES[cook_level]
+
+    def can_cook?(id)
+      RECIPES[id][:needs].all? { |item, n| $game_party.item_number(item) >= n }
+    end
+
+    def needs_text(id)
+      RECIPES[id][:needs].map { |item, n| "#{$data_items[item].name}×#{n}（有#{$game_party.item_number(item)}）" }.join('、')
+    end
+
+    # 做一道菜：返回 [品质 0～2, 份数, 说明]
+    # （不叫 cook：110 里 WebLife.cook 是客栈厨师这位熟客的数据）
+    def cook_dish(id, heat, taste)
+      r = RECIPES[id]
+      r[:needs].each { |item, n| $game_party.lose_item(item, n) }
+      q = (heat == r[:heat] ? 1 : 0) + (taste == r[:taste] ? 1 : 0)
+      q += 1 if q < 2 && rand(100) < cook_level * 4             # 厨艺高，偶尔有神来之笔
+      portions = q == 2 ? 2 : 1
+      $game_party.gain_item(id, portions)
+      data[:skill][:cooking] = cook_skill + 1 + q
+      pass_time(2)
+      tips = []
+      tips << "火候#{heat == r[:heat] ? '正好' : '不太对'}" 
+      tips << "味道#{taste == r[:taste] ? '正好' : '不太对'}"
+      [q, portions, "#{r[:name]}做好了！成色：#{QUALITY[q]}（#{tips.join('，')}），得到#{portions}份。"]
+    end
+
+    # ---- 吃饭增益：最后吃的一道菜，管几场战斗
+    def eat_dish(id)
+      r = RECIPES[id]
+      $game_variables[15] += r[:fill] if $game_variables[15] < $game_variables[16]
+      cook_data[:meal] = [id, r[:battles]]
+      "#{r[:name]}下肚，浑身舒坦。（接下来#{r[:battles]}场战斗：#{r[:fx].map { |e| WebGear.describe(e) }.join('，')}）"
+    end
+
+    def meal_effects
+      m = cook_data[:meal] rescue nil
+      return [] unless m && m[1].to_i > 0 && RECIPES[m[0]]
+      RECIPES[m[0]][:fx]
+    end
+
+    def meal_battle_done
+      m = cook_data[:meal]
+      return unless m
+      m[1] -= 1
+      cook_data[:meal] = nil if m[1] <= 0
+    end
+  end
+end
+
+# 吃饭增益接到装备特效：战斗中当作多穿了一件带这些特效的装备
+module WebGear
+  class << self
+    alias __life_active active
+    def active
+      list = __life_active
+      meal = WebLife.meal_effects rescue []
+      meal.empty? ? list : list + meal.select { |e| met?(e[:when]) }
+    end
+  end
+end
+
+class Scene_Battle
+  alias __life_battle_end battle_end
+  def battle_end(result)
+    WebLife.meal_battle_done rescue nil
+    __life_battle_end(result)
+  end
+end
+
+#--------------------------------------------------------------------------
+# 做菜画面：左边菜谱（缺料的变灰），上方显示食材与讲究；选菜后依次选火候、调味
+#--------------------------------------------------------------------------
+class Scene_Cook
+  def main
+    @help = Window_Help.new
+    @ids = WebLife.cook_data[:recipes].sort
+    @list = Window_Command.new(240, @ids.empty? ? ['（还不会做菜）'] : @ids.map { |id| WebLife::RECIPES[id][:name] })
+    @list.y = 64
+    @list.height = 416                              # 菜少时也占满一列，不留黑底
+    @ids.each_with_index { |id, i| @list.disable_item(i) unless WebLife.can_cook?(id) }
+    @info = Window_Base.new(240, 64, 400, 416)
+    @info.contents = Bitmap.new(368, 384)
+    @heat = Window_Command.new(160, WebLife::HEATS)
+    @taste = Window_Command.new(160, WebLife::TASTES)
+    [@heat, @taste].each { |w| w.x = 320; w.y = 240; w.visible = w.active = false; w.z = 200 }
+    @step = :list
+    refresh_info
+    Graphics.transition
+    until $scene != self
+      Graphics.update
+      Input.update
+      update
+    end
+    Graphics.freeze
+    [@help, @list, @info, @heat, @taste].each(&:dispose)
+  end
+
+  def current
+    @ids[@list.index]
+  end
+
+  def refresh_info
+    c = @info.contents
+    c.clear
+    c.font.color.set(0, 0, 0)
+    c.font.size = 20
+    l = WebLife
+    c.draw_text(0, 0, 368, 28, "灶台　厨艺：#{l.cook_title || '新手'}（#{l.cook_level}级）")
+    meal = l.cook_data[:meal]
+    c.font.size = 16
+    c.draw_text(0, 30, 368, 22, meal ? "正在管用：#{l::RECIPES[meal[0]][:name]}（还剩#{meal[1]}场）" : '（还没吃过有增益的菜）')
+    id = current or return @help.set_text('先去跟厨师学几道菜吧。')
+    r = l::RECIPES[id]
+    c.font.size = 18
+    y = 64
+    wrap = lambda do |text|
+      text.scan(/.{1,19}/).each { |line| c.draw_text(0, y, 368, 24, line); y += 24 }
+    end
+    wrap.call("食材：#{l.needs_text(id)}")
+    y += 6
+    wrap.call("讲究：#{r[:hint]}")
+    y += 6
+    wrap.call("吃了：#{r[:fx].map { |e| WebGear.describe(e) }.join('，')}（#{r[:battles]}场战斗）")
+    @help.set_text(l.can_cook?(id) ? "#{r[:name]}：按确定开始做" : "#{r[:name]}：食材不够")
+  end
+
+  def update
+    case @step
+    when :list
+      @list.update
+      refresh_info if @last_index != @list.index && (@last_index = @list.index)
+      if Input.trigger?(Input::B)
+        $game_system.se_play($data_system.cancel_se)
+        $scene = Scene_Map.new
+      elsif Input.trigger?(Input::C)
+        if current && WebLife.can_cook?(current)
+          $game_system.se_play($data_system.decision_se)
+          @step = :heat
+          @list.active = false
+          @heat.visible = @heat.active = true
+          @heat.index = 0
+          @help.set_text('火候：文火、武火，还是先武后文？')
+        else
+          $game_system.se_play($data_system.buzzer_se)
+        end
+      end
+    when :heat
+      @heat.update
+      if Input.trigger?(Input::B)
+        back_to_list
+      elsif Input.trigger?(Input::C)
+        $game_system.se_play($data_system.decision_se)
+        @step = :taste
+        @heat.active = false
+        @taste.visible = @taste.active = true
+        @taste.index = 0
+        @help.set_text('调味：清淡、咸鲜，还是重口？')
+      end
+    when :taste
+      @taste.update
+      if Input.trigger?(Input::B)
+        @taste.visible = @taste.active = false
+        @heat.active = true
+        @step = :heat
+      elsif Input.trigger?(Input::C)
+        q, _, text = WebLife.cook_dish(current, @heat.index, @taste.index)
+        $game_system.se_play(q == 2 ? $data_system.shop_se : $data_system.decision_se)
+        back_to_list
+        @help.set_text(text)
+        @ids.each_with_index { |id, i| WebLife.can_cook?(id) ? @list.able_item(i) : @list.disable_item(i) }
+        refresh_info_keep_help
+      end
+    end
+  end
+
+  def refresh_info_keep_help
+    t = @help.instance_variable_get(:@text)
+    refresh_info
+    @help.set_text(t)
+  end
+
+  def back_to_list
+    @heat.visible = @heat.active = false
+    @taste.visible = @taste.active = false
+    @list.active = true
+    @step = :list
+    refresh_info
+  end
+end

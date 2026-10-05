@@ -129,6 +129,10 @@ module WebLife
   # 漂流瓶：随机一条还没听过的江湖传闻（同茶摊传闻，060 / 090 的 RUMORS）
   def self.bottle_text
     todo = RUMORS.select { |sw, cond, _| !$game_switches[sw] && (eval(cond) rescue false) }
+    if respond_to?(:kitchen?) && kitchen? && !known?(63) && rand(100) < 25        # 130_厨子.rb：八宝鱼翅的方子
+      learn(63)
+      return '瓶里卷着一张发黄的菜谱，写着“八宝鱼翅”，落款是宫里的御厨。（学会了八宝鱼翅）'
+    end
     return '纸条被海水泡烂了，一个字也看不清。' if todo.empty?
     sw, _, text = todo.sample
     $game_switches[sw] = true

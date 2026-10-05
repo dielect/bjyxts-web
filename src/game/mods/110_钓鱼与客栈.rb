@@ -319,6 +319,7 @@ WebMod.edit 16 do |m|
     c.choices(%w[聊聊钓鱼 给你看看鱼 换女儿红 告辞]) do |i|
       case i
       when 0
+        c.if_script('WebLife.jose_recipes_due?') { c.say 'WebLife.jose_recipes' }   # 130_厨子.rb
         c.if_has(:item, 40, 1) do
           c.say 'WebLife.jose_tip'
         end.else do
@@ -362,23 +363,33 @@ module WebLife
   class << self
     def cook = client(:cook)
 
+    # 订单：入行做菜以后，一半是收菜（130_厨子.rb 的 new_dish_order）
     def cook_offer_text
-      new_order(:cook)
+      dish = respond_to?(:dish_order?) && dish_order?
+      (dish ? new_dish_order : new_order(:cook)) || (kitchen? && !cook_data[:recipes].empty? && new_dish_order)
       o = order or return '……'
-      first = cook[:done] == 0 ? '荷西说你钓鱼是把好手。' : '又得麻烦你了。'
-      "#{first}能不能给我送#{FISH[o[:item]][:name]}#{o[:qty]}条？我付你#{o[:pay]}两。"
+      name = $data_items[o[:item]].name
+      if o[:dish]
+        "有位客人点名要吃#{name}，你能做#{o[:qty]}份送来吗？我付你#{o[:pay]}两。"
+      else
+        first = cook[:done] == 0 ? '荷西说你钓鱼是把好手。' : '又得麻烦你了。'
+        "#{first}能不能给我送#{name}#{o[:qty]}条？我付你#{o[:pay]}两。"
+      end
     end
 
     def cook_wait_text
       o = order
       have = $game_party.item_number(o[:item])
-      "#{FISH[o[:item]][:name]}#{o[:qty]}条，你身上有#{have}条。不急，慢慢钓。"
+      unit = o[:dish] ? '份' : '条'
+      "#{$data_items[o[:item]].name}#{o[:qty]}#{unit}，你身上有#{have}#{unit}。不急，慢慢来。"
     end
 
     def cook_done_text
       o = order
-      text = "#{FISH[o[:item]][:name]}#{o[:qty]}条，一条不少！这是#{o[:pay]}两，你点点。"
+      unit = o[:dish] ? '份' : '条'
+      text = "#{$data_items[o[:item]].name}#{o[:qty]}#{unit}，一#{unit}不少！这是#{o[:pay]}两，你点点。"
       (cook[:served] ||= []) << o[:item] unless (cook[:served] ||= []).include?(o[:item])
+      cook[:dishes] = (cook[:dishes] || 0) + 1 if o[:dish]
       finish_order
       text
     end
@@ -388,8 +399,10 @@ module WebLife
     end
 
     def menu_text
-      names = (cook[:served] || []).map { |id| FISH[id][:name] }
-      dishes = names.first(4).zip(%w[清蒸 红烧 糖醋 干煎]).map { |n, way| "#{way}#{n}" }
+      served = cook[:served] || []
+      made = served.reject { |id| FISH[id] }.map { |id| $data_items[id].name }          # 你做的菜
+      fish = served.select { |id| FISH[id] }.map { |id| FISH[id][:name] }
+      dishes = (made + fish.zip(%w[清蒸 红烧 糖醋 干煎]).map { |n, way| "#{way}#{n}" }).first(5)
       who = $game_actors[1].name.to_s.empty? ? '你' : $game_actors[1].name
       "墙上挂着新写的菜牌：#{dishes.join('、')}……下面一行小字：鲜鱼由#{who}供应。"
     end
@@ -398,7 +411,8 @@ end
 
 WebMod.edit 20 do |m|
   m.talk '厨师', override: true do |c|
-    c.if_has(:item, 5) do                           # 原版：猪肉换祖传宝刀
+    # 原版：猪肉换祖传宝刀。只在还没和厨师做生意时提（做菜的人身上常带猪肉，不然每次都被换刀打断）
+    c.if_script('$game_party.item_number(5) > 0 && !WebLife.flag?(:cook_intro)') do
       c.text '真奇怪，我条案上的肉不见了，真是急人！我用这把祖传的宝刀换你身上的猪肉，你换吗？'
       c.choices(%w[换 不换]) do |i|
         if i == 0
@@ -424,6 +438,8 @@ WebMod.edit 20 do |m|
               c.switch(150)
               c.text '厨师搓着手：“客人们都夸鱼新鲜！我把你的鱼写上菜牌了，你瞧，就挂在那边墙上。”'
             end
+            c.if_script('WebLife.kitchen_offer_due?') { c.say 'WebLife.open_kitchen' }      # 130_厨子.rb
+            c.if_script('WebLife.cook_advanced_due?') { c.say 'WebLife.cook_advanced' }
             c.if_script('WebLife.cook[:done] >= 5 && !WebLife.flag?(:black_rod)') do
               c.script 'WebLife.set_flag(:black_rod)'
               c.text '“五单了！老哥我没什么好送的，这根乌金钓竿是早年一个客人押在店里的，归你了。”'

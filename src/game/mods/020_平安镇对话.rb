@@ -181,28 +181,39 @@ WebMod.edit 20 do |m|
   end
 
   m.talk '独行大侠' do |c|
-    # 打狗棒法支线：找回竹杖、棍法还不够时，指点去学基本棍法
-    c.if_script('$game_switches[103] && !$game_switches[104] && $game_variables[39] < 50') do
-      c.if_variable(19, 200000, 1) do
-        c.text '想学棍法？基本棍法我倒是会。来“请教”吧。'
+    # 厨子路线（130_厨子.rb）：入了行以后他来吃饭；打狗棒法支线指点棍法时照旧
+    old = lambda do
+      # 打狗棒法支线：找回竹杖、棍法还不够时，指点去学基本棍法
+      c.if_script('$game_switches[103] && !$game_switches[104] && $game_variables[39] < 50') do
+        c.if_variable(19, 200000, 1) do
+          c.text '想学棍法？基本棍法我倒是会。来“请教”吧。'
+        end.else do
+          c.text '想学棍法？基本棍法我倒是会。不过你的经验还浅，攒够二十万再来“请教”吧。'
+        end
       end.else do
-        c.text '想学棍法？基本棍法我倒是会。不过你的经验还浅，攒够二十万再来“请教”吧。'
-      end
-    end.else do
-      c.random(3) do |i|
-        case i
-        when 0
-          c.text '天下兵器，刀剑鞭杖棍，我都略知一二。经验攒够二十万，可以来找我“请教”。'
-        when 1
-          c.text '我当年追碧眼狐狸追到这小镇，追着追着就住下了。听说那狐狸在舞林大会上露过面。'
-        when 2
-          c.if_script('$live[144] != false && !$game_switches[104]') do
-            c.text '商业街那老叫化？……此人不简单。你若有缘，自会明白。'
-          end.else do
-            c.text '江湖上的高人，往往不在名门大派，而在市井之间。'
+        c.random(3) do |i|
+          case i
+          when 0
+            c.text '天下兵器，刀剑鞭杖棍，我都略知一二。经验攒够二十万，可以来找我“请教”。'
+          when 1
+            c.text '我当年追碧眼狐狸追到这小镇，追着追着就住下了。听说那狐狸在舞林大会上露过面。'
+          when 2
+            c.if_script('$live[144] != false && !$game_switches[104]') do
+              c.text '商业街那老叫化？……此人不简单。你若有缘，自会明白。'
+            end.else do
+              c.text '江湖上的高人，往往不在名门大派，而在市井之间。'
+            end
           end
         end
       end
+    end
+    c.if_script('WebLife.kitchen? && !($game_switches[103] && !$game_switches[104] && $game_variables[39] < 50)') do
+      c.say 'WebLife.sword_line'
+      c.if_script('WebLife.sword_can_serve?') do
+        c.choices(%w[端一份上来 下次吧]) { |i| i == 0 ? c.say('WebLife.serve_sword') : c.text('“行，下回再说。”') }
+      end
+    end.else do
+      old.call
     end
   end
 end
