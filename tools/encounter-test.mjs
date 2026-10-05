@@ -10,7 +10,7 @@ errs = []
 check = lambda { |cond, msg| errs << msg unless cond }
 reset = lambda do
   (1..300).each { |i| $game_variables[i] = 0 }
-  (100..120).each { |i| $game_switches[i] = false }
+  (100..160).each { |i| $game_switches[i] = false }
   $game_variables[160] = 150
   $game_variables[19] = 50000
   $game_variables[157] = 18
@@ -92,7 +92,7 @@ end
 reset.call
 $game_switches[106] = true; $game_switches[104] = true
 check.call(avail.call(10, 15), '有没听过的传闻时应出现')
-$game_switches[110] = $game_switches[112] = true
+RUMORS.each { |sw, *| $game_switches[sw] = true }
 check.call(!avail.call(10, 15), '传闻都听过了不该再出现')
 
 # 第二批：黑风寨、捕头、六扇门差事、比武招亲、货郎
@@ -122,6 +122,25 @@ $game_temp.shop_calling = false
 $game_party.lose_armor(86, 99)
 WebMod.roll_loot([[:missing, [[:armor, 78], [:armor, 86]], 1]])
 check.call($trea1 == '黑风大氅', "应掉还没有的黑风大氅，实际 #{$trea1}")
+
+# 第三批：逍遥故人、剑冢、老婆婆、武当老道、神兵传闻要经验 50 万
+reset.call
+check.call(!avail.call(16), '没破珍珑棋局，逍遥故人不出现')
+$game_switches[106] = true; $game_variables[78] = 30
+check.call(avail.call(16), '破局且小无相功 30 级后逍遥故人出现')
+check.call(!avail.call(17), '没听说剑冢，不出现')
+$game_switches[139] = true
+check.call(avail.call(17), '听说剑冢后出现')
+$game_switches[140] = true
+check.call(!avail.call(17), '拔出重剑后不再出现')
+check.call(avail.call(19, 26) && !avail.call(19, 1), '武当老道只在武当山脚')
+check.call(avail.call(18, 15) && !avail.call(18, 1), '老婆婆在镇上和郊外')
+reset.call
+$game_switches[106] = $game_switches[104] = true
+RUMORS.each { |sw, cond, _| $game_switches[sw] = true unless cond.include?('[19]') }   # 普通传闻都听过了
+check.call(!avail.call(10, 15), '经验不到 50 万，神兵传闻听不到')
+$game_variables[19] = 600000
+check.call(avail.call(10, 15), '经验 50 万后能听到神兵传闻')
 
 # 走路计数：野外每步 2，镇上 1，不在奇遇区域不计
 reset.call

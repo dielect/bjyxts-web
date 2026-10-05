@@ -49,6 +49,30 @@ qm = load_data('/game/Data/Map030.rxdata').events.values.find { |e| e.name == '�
 lists = qm.pages[0].list.select { |c| [302, 605].include?(c.code) }.map { |c| c.parameters }
 check.call(lists.count { |c| c == [1, 40] } == 1 && lists.count { |c| c == [2, 41] } == 4, "八卦门军需的分档：#{lists.inspect}")
 
+# 每件新装备都要有来源：地图事件、公共事件里的获得、商店货单、脚本里的掉落表与货郎货单
+src = { weapon: [], armor: [] }
+scan = lambda do |list|
+  list.each do |c|
+    case c.code
+    when 127 then src[:weapon] << c.parameters[0]
+    when 128 then src[:armor] << c.parameters[0]
+    when 302, 605 then src[[nil, :weapon, :armor][c.parameters[0]]] << c.parameters[1] if c.parameters[0] > 0
+    when 355, 655
+      c.parameters[0].scan(/\[:(weapon|armor), (\d+)/) { |k, i| src[k.to_sym] << i.to_i }
+      src[:weapon] += WebJianghu::HEIFENG.select { |k, _| k == :weapon }.map(&:last) if c.parameters[0].include?('HEIFENG')
+      src[:armor] += WebJianghu::HEIFENG.select { |k, _| k == :armor }.map(&:last) if c.parameters[0].include?('HEIFENG')
+      if c.parameters[0].include?('peddler_stock')
+        WebJianghu::PEDDLER.each { |k, i| src[k] << i }
+      end
+    end
+  end
+end
+($data_mapinfos.keys).each { |id| load_data(format('/game/Data/Map%03d.rxdata', id)).events.each_value { |e| e.pages.each { |pg| scan.call(pg.list) } } }
+$data_common_events.compact.each { |ce| scan.call(ce.list) }
+missing = (34..73).reject { |i| src[:weapon].include?(i) }.map { |i| $data_weapons[i].name } +
+          (32..102).reject { |i| src[:armor].include?(i) }.map { |i| $data_armors[i].name }
+check.call(missing.empty?, "这些装备还没有来源：#{missing.join('、')}")
+
 # ---------------------------------------------------------------- 套装件数与条件
 strip.call
 $game_variables[21] = 1

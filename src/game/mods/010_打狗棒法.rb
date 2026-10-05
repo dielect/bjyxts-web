@@ -89,8 +89,17 @@ WebMod.edit 15 do |m|
         look: { age: 6, level: 47, attack: 1, items: '破衣烂衫、竹棒',
                 text: '一个衣衫褴褛的老叫化，倚着墙根晒太阳。手里那根竹棒被磨得油光发亮，像是用了几十年。他偶尔抬眼看人，目光却清亮得不像个乞丐。' } do |c|
     c.if_switch(104) do
-      c.text '棒法要勤加练习，可别丢了老叫化的脸。'
-      c.text '记住，打狗棒法只打恶狗，不欺良善。'
+      c.if_switch(141, false) do                     # 丐帮套（050、090）：传完棒法后送衣服，只送一次
+        c.text '老叫化把身上的百衲衣脱下来，连同一只破麻袋塞给你：“丐帮的规矩，传了棒法，衣钵也一并给你。”'
+        c.text '“别嫌脏。客栈的店小二那儿有酒葫芦卖，配上竹杖，才像个样子。”'
+        c.gain(:armor, 73)
+        c.gain(:armor, 93)
+        c.switch(141)
+        c.text '得到了百衲衣、破麻袋！'
+      end.else do
+        c.text '棒法要勤加练习，可别丢了老叫化的脸。'
+        c.text '记住，打狗棒法只打恶狗，不欺良善。'
+      end
     end.else do
       c.if_switch(103) do
         c.if_variable(39, 50, 1) do                  # 基本棍法 ≥ 50
