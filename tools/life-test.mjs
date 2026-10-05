@@ -738,7 +738,7 @@ $game_party.gain_item(74, 2)
 q, n, t = L.brew(114, 2, 1)
 check.call($game_party.item_number(114) >= 1 && t.include?('不太对'), "炮制、火候都不对：#{t}")
 check.call([114, 115, 116, 117, 118].all? { |id| $data_items[id].type == 1 } && $data_items[106].type == 2, '药归药物，药材归其他')
-check.call(L::MEDS.keys.all? { |id| $data_items[id].common_event_id > 0 }, '每味药都能用')
+check.call((L::MEDS.keys - [121]).all? { |id| $data_items[id].common_event_id > 0 }, '每味药都能用（清瘟汤是送给薛神医的）')
 # 看病
 $game_variables[158] = 0; L.data[:patients] = nil
 3.times { L.start_clinic; check.call($game_variables[9] == 1, '有病人'); L.case_question; L.treat(L.instance_variable_get(:@case_answer)) }
@@ -763,6 +763,75 @@ a.equip(0, 0); a.equip(3, 0); a.equip(5, 0)
 check.call(!L.medic_dishes_due?, '没入厨行不教药膳')
 L.set_flag(:kitchen)
 check.call(L.medic_dishes_due? && L.medic_dishes.include?('当归炖鸡') && !L.medic_dishes_due?, '入了厨行教两道药膳')
+
+# ---- 青囊功
+check.call(WebSkill.category(79) == WebSkill::INNER && WebSkill.base_of(79) == 45 && WebSkill::PERFORMS[79] == [37, 38, 39], '青囊功是内功，带三个绝招')
+fresh.call; L.enter_medic rescue nil
+L.set_flag(:medic); [154, 155, 156, 157, 158].each { |i| $game_switches[i] = false }
+$game_variables[79] = 0
+L.data[:skill][:medic] = 30
+check.call(L.qingnang_due?, '医术到郎中，薛神医传青囊功')
+L.teach_qingnang
+check.call($game_variables[79] == 1 && !L.qingnang_due?, '学会青囊功')
+$game_variables[19] = 3000000
+L.data[:patients] = nil; $game_variables[158] = 0
+L.start_clinic; L.case_question; L.treat(L.instance_variable_get(:@case_answer))
+check.call($game_variables[79] > 1, "看病练青囊功：#{$game_variables[79]}")
+$game_variables[79] = 200
+check.call(L.qingnang_rate == 0.1, "青囊功 200 级，运功疗伤每次一成：#{L.qingnang_rate}")
+a.maxhp = L.full_hp / 2; a.sp = 100; mh = a.maxhp
+L.qingnang_recover(a)
+check.call(a.maxhp == mh + (L.full_hp * 0.1).to_i && a.sp == 64, '青囊功疗伤')
+a.maxhp = L.full_hp / 2; a.hp = 1
+t = L.battle_heal(a)
+check.call(a.maxhp == L.full_hp / 2 + L.full_hp / 10 && a.hp > 1, "妙手回春：#{t}")
+# 绝招：妙手回春、一指断魂要剧情才传
+$game_variables[32] = 79; $game_variables[45] = 120; $game_variables[79] = 120
+study_skill
+check.call(a.skills.include?(37) && !a.skills.include?(38) && !a.skills.include?(39), "启用青囊功学会金针渡穴：#{a.skills.inspect}")
+# ---- 瘟疫：配药救人
+L.data[:skill][:medic] = 80
+check.call(L.plague_due?, '医术到大夫，闹瘟疫')
+L.plague_start
+check.call(L.plague_stage == :plague && $game_switches[154] && $game_switches[155] && $game_switches[158] && L.plague_hint.include?('西郊'), '瘟疫开始：病人不在、投毒人、伙计都出现')
+check.call(L.med_ids.include?(121), '会配清瘟汤')
+check.call(L.deliver_bowls.include?('药炉'), '没有清瘟汤')
+$game_party.gain_item(121, 4)
+check.call(L.deliver_bowls.include?('还差2碗') && L.plague_stage == :plague, '送了四碗')
+$game_party.gain_item(121, 3); g0 = $game_party.gold
+L.deliver_bowls
+check.call(L.plague_stage == :cured && !$game_switches[154] && !$game_switches[155] && !$game_switches[158] && $game_party.gold - g0 == 1000 && $game_party.item_number(121) == 1, '六碗送齐，瘟疫退了')
+check.call(L.miaoshou_due?, '救了人，传妙手回春')
+L.teach_miaoshou
+check.call(a.skills.include?(38) && !L.miaoshou_due?, '学会妙手回春')
+# 瘟疫期间诊桌多是瘟疫病人
+L.data[:plague] = {}; L.plague_start
+srand(2)
+cases = 20.times.map { L.data[:patients] = nil; L.start_clinic; L.instance_variable_get(:@case) }
+check.call(cases.count(L::PLAGUE_CASE).between?(6, 18), "瘟疫期间多是瘟疫病人：#{cases.count(L::PLAGUE_CASE)}/20")
+# 追查病源
+L.poisoner_beaten
+check.call(L.plague_stage == :source && !$game_switches[155] && L.plague_saved?, '打跑投毒人，瘟疫退了')
+# 不管
+L.data[:plague] = {}; L.plague_start
+$game_variables[158] += 260; L.plague_tick
+check.call(L.plague_stage == :ignored && !$game_switches[154] && L.plague_after_line.include?('自己退了'), '不管：一个月后自己退了')
+# 囤药
+L.data[:plague] = {}; L.data[:flags].delete(:yizhi); L.plague_start
+g0 = $game_party.gold; m0 = $game_variables[160] = 200
+L.hoard
+check.call($game_party.gold - g0 == 5000 && $game_variables[160] == 185 && $game_switches[156] && $game_switches[157] && !L.qingnang_due? && !L.plague_due?, '囤药：五千两，道德−15，薛神医走了')
+$game_variables[158] += 260; L.plague_tick
+check.call(L.plague_stage == :hoard_done && !$game_switches[154] && $game_switches[158] && L.yizhi_due?, '瘟疫退了，伙计还在药店，传一指断魂')
+L.teach_yizhi
+check.call(a.skills.include?(39), '学会一指断魂')
+L.data[:patients] = nil
+L.start_clinic; L.case_question
+g0 = $game_party.gold
+t = L.treat(L.instance_variable_get(:@case_answer))
+check.call(t.include?('平一指的药店'), "在平一指那儿看病诊金多五成：#{t}")
+[154, 155, 156, 157, 158].each { |i| $game_switches[i] = false }
+$game_variables[32] = 0; study_skill
 
 errs.empty? ? 'ok' : errs.join("\n")
 `);
