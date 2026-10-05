@@ -96,9 +96,51 @@ check.call(WebXwx.seen == [6], '自己用的、左右互搏都不应观到')
 # 获取：无相残卷 → 公共事件 26 → 逍遥派秘籍 6
 check.call($data_items[24] && $data_items[24].name == '无相残卷' && $data_items[24].common_event_id == 26, '物品 24 无相残卷应指向公共事件 26')
 check.call($data_common_events[26] && $data_common_events[26].list.any? { |c| c.code == 355 && c.parameters[0] == '$scene=Scene_Study.new(7,6)' }, '公共事件 26 应打开逍遥派秘籍 6')
-check.call(WebSkill.study_list(7, 6, nil) == [[78, 150]], '逍遥派秘籍 6 应教小无相功到 150 级')
+check.call(WebSkill.study_list(7, 6, nil) == [[78, 150], [61, 150]], '逍遥派秘籍 6 应教小无相功、天山折梅手到 150 级')
 check.call(WebSkill.study_list(7, 4, [[40, 250], [60, 200]]) == [[40, 250], [60, 200]], '原版秘籍列表应不变')
+# ---- 天山折梅手（040）
+reset.call
+check.call($data_system.variables[61] == '天山折梅手' && WebSkill.category(61) == WebSkill::FIST && WebSkill.base_of(61) == 40, '天山折梅手应登记为拳脚，基础为基本拳脚')
+own = WebSkill::ATTACK_WORDS[61]
+check.call(own.size == 8 && own.count { |m| m[0] == 0 } == 2 && own.all? { |m| m[5].is_a?(Symbol) }, '折梅手应有 8 招、0 级就有 2 招、每招带特效')
+orig = { 59 => [[0, '雪影招式', 100, 30, 3]], 58 => [[0, '太极拳招式', 50, 28, 4]] }
+p0 = WebSkill.attack_words_for(61, '你', '对手', '', '胸口', orig)
+check.call(p0.size == 8 && p0[0][2] == 25, "没启用小无相功、没记招时只有自身招式且威力不变，实际 #{p0.size} 招、#{p0[0][2]}")
+$game_variables[78] = 150; $game_variables[32] = 78; $game_variables[241] = 23; $game_variables[242] = 6
+p1 = WebSkill.attack_words_for(61, '你', '对手', '', '胸口', orig)
+check.call(p1.size == 9 && p1.any? { |m| m[1] == '雪影招式' }, "记下神倒鬼跌后应化入雪影擒拿手的招式，实际 #{p1.map { |m| m[1][0, 4] }.inspect}")
+check.call(p1[0][2] == (25 * 1.16).round && p1.find { |m| m[1] == '雪影招式' }[2] == 116, '记下 2 招时威力应 +16%')
+check.call(p1[0][1].include?('你') && p1[0][1].include?('对手'), '招式描述应填好人称')
+# 特效
+enemy = Game_Enemy.allocate
+enemy.instance_variable_set(:@enemy_id, 30); enemy.instance_variable_set(:@hp, 1000); enemy.instance_variable_set(:@sp, 200); enemy.instance_variable_set(:@states, []); enemy.instance_variable_set(:@state_turns, {})
+def enemy.maxhp; 5000; end
+def enemy.maxsp; 5000; end
+$game_variables[61] = 100; $game_variables[29] = 0
+$npc_data = [0] * 31; $npc_data[25] = 30
+enemy.damage = 100; WebZhemei.apply(:pofang, a, enemy)
+check.call(enemy.damage == 130 && enemy.hp == 970, "破防应多 30% 伤害，实际 #{enemy.damage}、#{enemy.hp}")
+enemy.damage = 100; WebZhemei.apply(:fenyuan, a, enemy)
+check.call(enemy.sp == 150, "焚元应烧掉伤害一半的内力，实际 #{enemy.sp}")
+WebZhemei.apply(:fuxue, a, enemy)
+check.call($npc_data[25] == 10, "拂穴应降低闪避 等级÷5，实际 #{$npc_data[25]}")
+WebZhemei.apply(:meiying, a, enemy)
+a.damage = 50
+check.call(WebZhemei.before_enemy_attack(enemy, a) && a.damage == 'Miss', '虚招后对方下一招应落空')
+check.call(!WebZhemei.before_enemy_attack(enemy, a), '虚招只作用一次')
+WebZhemei.apply(:xieli, a, enemy)
+a.damage = 100; a.instance_variable_set(:@hp, 400)
+WebZhemei.after_enemy_attack(enemy, a)
+check.call(a.damage == 80 && a.hp == 420, "卸力应让对方下一招伤害减 20%，实际 #{a.damage}、#{a.hp}")
+# 生死符：发作不致死
+win2 = Object.new; def win2.draw_words(*); end
+enemy.instance_variable_set(:@hp, 50)
+WebZhemei.plant(a, enemy)
+check.call(enemy.instance_variable_get(:@zm_shengsi) == 5, '100 级生死符应持续 3 + 100÷40 = 5 次')
+WebZhemei.flare(enemy, win2)
+check.call(enemy.hp == 1 && enemy.instance_variable_get(:@zm_shengsi) == 4, "生死符发作应不致死，实际气血 #{enemy.hp}")
+check.call(WebSkill::REQUIREMENTS[29] == [[29, 61], [61, 80], [40, 80]] && WebSkill::PERFORMS[61] == [29], '生死符应由折梅手学会，80 级可用')
 errs.empty? ? 'ok' : errs.join("\n")
 `);
 if (out !== 'ok') { console.log(out); process.exit(1); }
-console.log('小无相功规则：通过');
+console.log('小无相功、天山折梅手规则：通过');

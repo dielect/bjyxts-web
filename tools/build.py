@@ -65,7 +65,9 @@ PATCHES = [
     # 流星飞掷对 126 号以后的敌人无效；地图扩展层的新敌人默认可以击中（elite 的除外）
     ('025', 'hit=0 if self.id>125', 'hit=0 if WebMod.finisher_immune?(self.id)', 1),
     # 扩展内容的招式描述、绝招描述、连击绝招、NPC 兵器类型改为可登记（src/game/web_skills.rb）
-    ('008', 'words=attcck_words[sk_id]', 'words=attcck_words[sk_id] || WebSkill.attack_words_for(sk_id,user,objector,weapon_name,sp)', 1),
+    ('008', 'words=attcck_words[sk_id]', 'words=attcck_words[sk_id] || WebSkill.attack_words_for(sk_id,user,objector,weapon_name,sp,attcck_words)', 1),
+    # 记下这一次抽中的招式，供命中后的招式特效使用（040 天山折梅手）
+    ('008', '  window.draw_words(diswords[lv][1])', '  $web_atk_move = diswords[lv]\n  window.draw_words(diswords[lv][1])', 1),
     ('008', '''        case $npc_data[9]
         when 8,9,10,11,12,13,14,1,28,29
           sk_id=42

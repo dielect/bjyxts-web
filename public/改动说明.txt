@@ -10,6 +10,13 @@
 ------------------------------------
 game-src/Graphics/Characters、Battlers 的 Npc_OldBeggar.png、Npc_StaffVendor.png/重新生成/改由 assets/npcs/32x32/old-beggar-v3-hero.png、staff-vendor-v2.png 生成，文件名不变。
 
+2026-10-05 逍遥派掌法：天山折梅手
+-----------------------------
+src/game/mods/040_天山折梅手.rb/新增/拳脚 61 天山折梅手（WebZhemei 模块）：8 招带特效的招式、化入小无相功记下的别派拳脚招式、记招越多威力越高、30 级追加一击、80 级绝招 29 生死符（每次行动前发作，不致死，几率定身）。无相残卷（逍遥派秘籍 6）同时教小无相功与天山折梅手。挂接 Game_Battler#attack_effect、skill_effect 与 Scene_Battle#update_phase4_step2（均以 alias 包装，不用折梅手时行为不变）。
+008 - Data_Attack/（全局）/draw_atk_text/256、263/查不到招式时把原版招式表一并传给 WebSkill.attack_words_for；记下这一次抽中的招式（$web_atk_move），供招式特效使用。
+src/game/web_skills.rb/WebSkill/attack_words_for 增加原版招式表参数；招式第 6 项起可附加标记。
+tools/xwx-test.mjs/新增检查/天山折梅手的招式、化入、加成、特效与生死符。
+
 2026-10-05 按键与设置面板改为游戏同款风格
 --------------------------------------
 static/index.html/触屏按键/确定、取消、上页、下页、设置按钮改为方角，与游戏窗口、封面同一套样式（墨色外框 + 亮绿内线 + 清晰的像素位移阴影），按下时反色（墨底亮字）；十字键阴影与中心块同步；两侧底色从近黑改为深墨绿。只改外观，尺寸和位置不变。

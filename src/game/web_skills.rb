@@ -211,8 +211,10 @@ module WebSkill
     text.gsub(/%\{(\w+)\}/) { vars[$1.to_sym].to_s }
   end
 
-  # 008 draw_atk_text 在原版表里查不到时调用；查不到返回 nil（与原版行为相同）
-  def attack_words_for(skill_id, user, objector, weapon, sp)
+  # 008 draw_atk_text 在原版表里查不到时调用；查不到返回 nil（与原版行为相同）。
+  # original 是原版这一次出手已填好人称的招式表（武功编号 => 招式），扩展内容可以借用别派招式（例如 040 天山折梅手）。
+  # 招式第 6 项起可以附加标记（例如特效名），原版只读前 5 项，不受影响。
+  def attack_words_for(skill_id, user, objector, weapon, sp, original = nil)
     list = ATTACK_WORDS[skill_id] or return nil
     vars = { user: user, objector: objector, weapon: weapon, sp: sp }
     list.map { |lv, text, *rest| [lv, fill(text, vars), *rest] }
