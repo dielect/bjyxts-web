@@ -303,7 +303,8 @@ function setupSettings() {
     const el = $(id);
     const k = `${SAVE_PREFIX}#vol_${kind}`;
     el.value = localStorage.getItem(k) ?? '100';
-    const apply = () => { rg.audio.setMaster(kind, el.value / 100); localStorage.setItem(k, el.value); };
+    const out = $(`${id}-val`);
+    const apply = () => { rg.audio.setMaster(kind, el.value / 100); localStorage.setItem(k, el.value); if (out) out.textContent = `${el.value}%`; };
     el.addEventListener('input', apply);
     apply();
   };

@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#12160b">
+<meta name="theme-color" content="#222a14">
 <meta name="screen-orientation" content="landscape">
 <meta name="x5-orientation" content="landscape">
 <meta name="x5-fullscreen" content="true">
@@ -30,27 +30,27 @@ body { position: fixed; inset: 0; display: flex; align-items: center; justify-co
 #screen { display: block; flex: none; image-rendering: auto; background: #000; box-shadow: 0 0 0 1px #222; }
 body.crisp #screen { image-rendering: pixelated; }
 
-/* ---- touch controls（与游戏画面同色：底 #90b057 / 深 #48582b / 墨 #283018） ---- */
-:root { --g: #90b057; --g-hi: #a9c76e; --g-dk: #48582b; --g-ink: #283018; --g-shadow: #1c2210; }
-body { background: #12160b; }
+/* ---- touch controls：与游戏窗口、封面同一套样式（墨色外框 + 亮绿内线 + 清晰的像素位移阴影，方角），
+   两侧底色用深墨绿，和画面的绿色调统一 ---- */
+:root { --g: #90b057; --g-hi: #a9c76e; --g-dk: #48582b; --g-ink: #283018; --g-shadow: #1c2210; --g-panel: #222a14; }
+body { background: var(--g-panel); }
 #controls { display: none; }
 body.pad-on #controls { display: block; }
 #dpad { position: fixed; left: calc(var(--safe-left) + (var(--side) - var(--pad)) / 2);
   top: calc(var(--safe-top) + (100% - var(--safe-top) - var(--safe-bottom)) / 2);
   transform: translateY(-38%); width: var(--pad); height: var(--pad); touch-action: none; z-index: 5; }
 /* 十字键：外层墨色十字 + 内缩 3px 的绿色十字，描边粗细一致，无接缝 */
-#dpad .cross { position: absolute; inset: 0; pointer-events: none; filter: drop-shadow(0 4px 0 var(--g-shadow)); }
+#dpad .cross { position: absolute; inset: 0; pointer-events: none; filter: drop-shadow(4px 4px 0 var(--g-shadow)); }
 #dpad .cross::before, #dpad .cross::after { content: ""; position: absolute; inset: 0; }
 #dpad .cross::before { background: var(--g-ink);
   clip-path: polygon(33% 0, 67% 0, 67% 33%, 100% 33%, 100% 67%, 67% 67%, 67% 100%, 33% 100%, 33% 67%, 0 67%, 0 33%, 33% 33%); }
-#dpad .cross::after { background: var(--g);
+#dpad .cross::after { background: var(--g); box-shadow: inset 0 0 0 2px var(--g-hi);
   clip-path: polygon(calc(33% + 3px) 3px, calc(67% - 3px) 3px, calc(67% - 3px) calc(33% + 3px), calc(100% - 3px) calc(33% + 3px),
     calc(100% - 3px) calc(67% - 3px), calc(67% - 3px) calc(67% - 3px), calc(67% - 3px) calc(100% - 3px), calc(33% + 3px) calc(100% - 3px),
     calc(33% + 3px) calc(67% - 3px), 3px calc(67% - 3px), 3px calc(33% + 3px), calc(33% + 3px) calc(33% + 3px)); }
 #dpad .hub { position: absolute; left: 33%; top: 33%; width: 34%; height: 34%; pointer-events: none;
   display: flex; align-items: center; justify-content: center; }
-#dpad .hub::after { content: ""; width: 40%; height: 40%; border-radius: 50%; background: var(--g-dk); opacity: .55;
-  box-shadow: inset 0 2px 0 var(--g-shadow); }
+#dpad .hub::after { content: ""; width: 30%; height: 30%; background: var(--g-dk); }
 #dpad .dir { position: absolute; width: 34%; height: 34%; display: flex; align-items: center; justify-content: center;
   pointer-events: none; border-radius: 0; }
 #dpad .dir::before { content: ""; width: 46%; height: 46%; background: var(--g-ink);
@@ -61,30 +61,33 @@ body.pad-on #controls { display: block; }
 #dpad .d::before { transform: rotate(180deg); }
 #dpad .l::before { transform: rotate(-90deg); }
 #dpad .r::before { transform: rotate(90deg); }
-#dpad .dir.on { background: var(--g-dk); }
+#dpad .dir.on { background: var(--g-ink); }
 #dpad .dir.on::before { background: var(--g-hi); }
 
 #btns { position: fixed; right: calc(var(--safe-right) + (var(--side) - var(--pad)) / 2);
   top: calc(var(--safe-top) + (100% - var(--safe-top) - var(--safe-bottom)) / 2);
   transform: translateY(-38%); width: var(--pad); height: var(--pad); z-index: 5; }
-.btn { position: absolute; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  background: var(--g); border: 3px solid var(--g-ink); color: var(--g-ink); box-shadow: 0 4px 0 var(--g-shadow);
-  font-size: calc(var(--pad) * .13); font-weight: bold; touch-action: none; font-family: inherit; padding: 0; }
-.btn.on { background: var(--g-dk); color: var(--g-hi); transform: translateY(3px); box-shadow: 0 1px 0 var(--g-shadow); }
+.btn { position: absolute; border-radius: 0; display: flex; align-items: center; justify-content: center;
+  background: var(--g); border: 3px solid var(--g-ink); color: var(--g-ink);
+  box-shadow: inset 0 0 0 2px var(--g-hi), 4px 4px 0 var(--g-shadow);
+  font-size: calc(var(--pad) * .13); font-weight: normal; letter-spacing: .1em; touch-action: none; font-family: inherit; padding: 0; }
+/* 按下：反色（墨底亮字），像游戏里的选中光标；阴影收起、按键位移到阴影处 */
+.btn.on { background: var(--g-ink); color: var(--g-hi); transform: translate(3px, 3px); box-shadow: inset 0 0 0 2px var(--g-dk), 1px 1px 0 var(--g-shadow); }
 .btn.c { width: 54%; height: 54%; right: 0; top: 10%; }
 .btn.b { width: 44%; height: 44%; left: 0; bottom: 2%; }
-.btn.small { width: 44%; height: 19%; border-radius: 6px; font-size: calc(var(--pad) * .1); top: -22%; white-space: nowrap;
-  box-shadow: 0 3px 0 var(--g-shadow); }
-.btn.small.on { transform: translateY(2px); box-shadow: 0 1px 0 var(--g-shadow); }
+.btn.small { width: 44%; height: 20%; font-size: calc(var(--pad) * .11); top: -23%; white-space: nowrap; letter-spacing: .15em;
+  box-shadow: inset 0 0 0 2px var(--g-hi), 3px 3px 0 var(--g-shadow); }
+.btn.small.on { transform: translate(3px, 3px); box-shadow: inset 0 0 0 2px var(--g-dk); }
 .btn.lpage { left: 0; } .btn.rpage { right: 0; }
 
 #gear { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 8px); right: calc(env(safe-area-inset-right, 0px) + 8px);
-  z-index: 8; width: 38px; height: 38px; border-radius: 6px; border: 2px solid var(--g-ink);
+  z-index: 8; width: 38px; height: 38px; border-radius: 0; border: 2px solid var(--g-ink);
   background: var(--g); padding: 0; display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 3px 0 var(--g-shadow); }
+  box-shadow: inset 0 0 0 1px var(--g-hi), 3px 3px 0 var(--g-shadow); }
 #gear::before { content: ""; width: 20px; height: 20px; background: var(--g-ink);
   -webkit-mask: var(--gear-svg) center/contain no-repeat; mask: var(--gear-svg) center/contain no-repeat; }
-#gear:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--g-shadow); }
+#gear:active { transform: translate(2px, 2px); background: var(--g-ink); box-shadow: 1px 1px 0 var(--g-shadow); }
+#gear:active::before { background: var(--g-hi); }
 :root { --gear-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill-rule='evenodd' d='M10 1h4l.6 3.1 1.9.8 2.6-1.8 2.8 2.8-1.8 2.6.8 1.9L23 10v4l-3.1.6-.8 1.9 1.8 2.6-2.8 2.8-2.6-1.8-1.9.8L14 23h-4l-.6-3.1-1.9-.8-2.6 1.8-2.8-2.8 1.8-2.6-.8-1.9L1 14v-4l3.1-.6.8-1.9-1.8-2.6 2.8-2.8 2.6 1.8 1.9-.8zM12 8a4 4 0 100 8 4 4 0 000-8z'/%3E%3C/svg%3E"); }
 
 /* ---- overlays：与虚拟按键同一套掌机像素风（绿底、墨色粗描边、下沉阴影、直角） ---- */
@@ -102,17 +105,50 @@ body.pad-on #controls { display: block; }
   border-bottom: 3px solid var(--g-ink); }
 .panel h3.sub { margin: 16px 0 6px; padding: 10px 0 0; font-size: 17px; color: var(--g-ink); letter-spacing: 3px;
   border-top: 3px dashed var(--g-dk); }
-.panel button, .panel .row button { font-family: inherit; font-size: 16px; padding: 8px 14px; margin: 4px 8px 6px 0;
+.panel button, .panel .row button { font-family: inherit; font-size: 16px; letter-spacing: 1px; padding: 7px 14px; margin: 4px 8px 6px 0;
   background: var(--g-hi); color: var(--g-ink); border: 3px solid var(--g-ink); border-radius: 0; cursor: pointer;
-  box-shadow: 0 4px 0 var(--g-shadow); transition: none; }
-.panel button:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--g-shadow); background: var(--g-dk); color: var(--g-pale); }
+  box-shadow: 3px 3px 0 var(--g-shadow); transition: none; }
+.panel button:active { transform: translate(3px, 3px); box-shadow: none; background: var(--g-ink); color: var(--g-hi); }
 .panel button:focus-visible { outline: 3px dashed var(--g-ink); outline-offset: 2px; }
 #sandbox-badge { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 8px); left: calc(env(safe-area-inset-left, 0px) + 8px);
   z-index: 8; display: none; padding: 2px 8px; font-size: 13px; letter-spacing: 2px; color: var(--g-pale); background: var(--g-ink);
   border: 2px solid var(--g-hi); pointer-events: none; }
 body.sandbox #sandbox-badge { display: block; }
-#set-close, #dlg-ok, #cheat-apply { background: var(--g-ink); color: var(--g-pale); }
-#set-close:active, #dlg-ok:active, #cheat-apply:active { background: var(--g-dk); }
+#dlg-ok, #cheat-apply, .panel button.danger { background: var(--g-ink); color: var(--g-pale); }
+#dlg-ok:active, #cheat-apply:active, .panel button.danger:active { background: var(--g-dk); }
+/* 设置面板：墨色标题栏 + 分组标签 + 两列等宽按钮；手机横屏时左右两栏 */
+.panel.settings { width: min(94vw, 560px); padding: 0; }
+.panel-title { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 8px 10px 8px 18px; background: var(--g-ink); border-bottom: 3px solid var(--g-ink); }
+.panel .panel-title h2 { margin: 0; padding: 0; border: 0; color: var(--g-pale); font-size: 20px; letter-spacing: 8px; }
+.panel .panel-title button { margin: 0; padding: 4px 12px; font-size: 14px; background: var(--g-hi); color: var(--g-ink);
+  border-color: var(--g-hi); box-shadow: none; }
+.panel .panel-title button:active { background: var(--g); transform: none; }
+.settings-body { padding: 2px 18px 16px; }
+.settings-body section { min-width: 0; }
+.panel h3.tag { display: inline-block; margin: 14px 0 8px; padding: 2px 10px 2px 12px; font-size: 14px; letter-spacing: 4px;
+  color: var(--g-pale); background: var(--g-dk); border: 0; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 4px 0; }
+.panel .grid button { width: 100%; margin: 0; padding: 7px 6px; }
+.panel .note { margin: 8px 0 0; font-size: 13px; line-height: 1.6; color: #34421c; text-align: left; }
+.panel .note:empty { display: none; }
+.row .val { min-width: 3.2em; text-align: right; font-size: 14px; }
+.settings .row { flex-wrap: nowrap; margin: 6px 0; }
+.settings .row label { min-width: 3em; }
+.settings .row input[type=range] { min-width: 0; }
+.grid > :only-child { grid-column: 1 / -1; }
+@media (orientation: landscape) and (max-height: 520px) {
+  .panel.settings { width: min(96vw, 880px); max-height: 96vh; }
+  .panel-title { padding: 4px 8px 4px 14px; }
+  .panel .panel-title h2 { font-size: 17px; }
+  .settings-body { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; padding: 0 14px 10px; }
+  .panel h3.tag { margin: 8px 0 5px; font-size: 13px; }
+  .settings .row { margin: 2px 0; }
+  .panel .grid { gap: 8px; }
+  .panel .grid button { padding: 5px 6px; font-size: 15px; }
+  .panel .note { margin-top: 5px; font-size: 12px; line-height: 1.5; }
+  .settings .row.cheat input { padding: 3px 8px; font-size: 16px; }
+}
 .row { display: flex; align-items: center; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
 .row label { min-width: 72px; font-weight: bold; }
 .row.cheat { margin: 6px 0; }
@@ -172,7 +208,7 @@ input[type=range]::-moz-range-thumb { width: 14px; height: 18px; background: var
 @keyframes blink { 50% { background: var(--g); } }
 @media (max-height: 420px) { .cover-foot .keys { display: none; } }
 /* 竖屏提示 */
-#rotate { position: fixed; inset: 0; display: none; z-index: 50; background: #12160b; flex-direction: column;
+#rotate { position: fixed; inset: 0; display: none; z-index: 50; background: var(--g-panel); flex-direction: column;
   align-items: center; justify-content: center; text-align: center; font-size: 18px; color: var(--g-pale); }
 body.portrait #rotate { display: flex; }
 #rotate .phone { width: 46px; height: 78px; border: 4px solid var(--g); background: var(--g-dk); border-radius: 0;
@@ -233,31 +269,42 @@ body.portrait #rotate { display: flex; }
   <div><button id="dlg-ok">确定</button><button id="dlg-cancel">取消</button></div>
 </div></div>
 
-<div id="settings" class="overlay"><div class="panel">
-  <h2>设置</h2>
-  <div class="row"><label>音乐音量</label><input id="set-bgm" type="range" min="0" max="100"></div>
-  <div class="row"><label>音效音量</label><input id="set-se" type="range" min="0" max="100"></div>
-  <div class="row"><button id="set-full">全屏 / 退出全屏</button><button id="set-pad">显示 / 隐藏虚拟按键</button></div>
-  <div class="row"><button id="set-export">导出存档</button><button id="set-import">导入存档</button><button id="set-reset">重新载入游戏</button></div>
-  <div class="row"><button id="set-newgame">删除存档，重新开始</button></div>
-  <div class="hint" style="text-align:left;margin:6px 0 10px">存档自动保存在本浏览器中（与 PC 版 Gmud.sav 格式相同，可互相导入）。清除浏览器数据会删除存档，建议定期导出备份。</div>
-  <div class="row"><button data-export-diagnostics>导出诊断日志</button></div>
-  <div class="hint" data-diagnostic-status></div>
-  <h3 class="sub">沙盒模式</h3>
-  <div id="sandbox-off">
-    <div class="hint" style="text-align:left;margin:2px 0 8px">开启后可以直接修改经验、潜能和金钱，适合测试或随便玩。开启后本存档会永久标记为“沙盒”。</div>
-    <div class="row"><button id="sandbox-on">开启沙盒模式</button></div>
-    <div class="hint" id="sandbox-msg" style="text-align:left;margin:2px 0 12px"></div>
+<div id="settings" class="overlay"><div class="panel settings">
+  <div class="panel-title"><h2>设置</h2><button id="set-close">返回游戏</button></div>
+  <div class="settings-body">
+    <section>
+      <h3 class="tag">声音</h3>
+      <div class="row"><label for="set-bgm">音乐</label><input id="set-bgm" type="range" min="0" max="100"><span class="val" id="set-bgm-val"></span></div>
+      <div class="row"><label for="set-se">音效</label><input id="set-se" type="range" min="0" max="100"><span class="val" id="set-se-val"></span></div>
+      <h3 class="tag">画面</h3>
+      <div class="grid"><button id="set-full">全屏</button><button id="set-pad">虚拟按键</button></div>
+      <h3 class="tag">存档</h3>
+      <div class="grid">
+        <button id="set-export">导出存档</button><button id="set-import">导入存档</button>
+        <button id="set-reset">重新载入</button><button id="set-newgame" class="danger">删除存档重来</button>
+      </div>
+      <p class="note">存档保存在本浏览器里，与 PC 版 Gmud.sav 格式相同，可以互相导入。清除浏览器数据会删掉存档，记得定期导出备份。</p>
+    </section>
+    <section>
+      <h3 class="tag">沙盒模式</h3>
+      <div id="sandbox-off">
+        <p class="note">开启后可以直接修改经验、潜能和金钱，适合测试或随便玩。开启后本存档会永久标记为“沙盒”。</p>
+        <div class="grid"><button id="sandbox-on">开启沙盒模式</button></div>
+        <p class="note" id="sandbox-msg"></p>
+      </div>
+      <div id="sandbox-panel" hidden>
+        <div class="row cheat"><label for="cheat-exp">经验</label><input id="cheat-exp" type="number" min="0" step="1" inputmode="numeric"></div>
+        <div class="row cheat"><label for="cheat-pot">潜能</label><input id="cheat-pot" type="number" min="0" step="1" inputmode="numeric"></div>
+        <div class="row cheat"><label for="cheat-gold">金钱</label><input id="cheat-gold" type="number" min="0" max="9999999" step="1" inputmode="numeric"></div>
+        <div class="grid"><button id="cheat-read">读取当前</button><button id="cheat-add">各加一千万</button><button id="cheat-apply">应用修改</button></div>
+        <p class="note" id="cheat-msg">修改立即生效。想保留请回到游戏，在菜单「功能」里存档。</p>
+      </div>
+      <h3 class="tag">关于</h3>
+      <p class="note">网页版 __WEB_VERSION__</p>
+      <div class="grid"><button data-export-diagnostics>导出诊断日志</button></div>
+      <p class="note" data-diagnostic-status></p>
+    </section>
   </div>
-  <div id="sandbox-panel" hidden>
-    <div class="row cheat"><label for="cheat-exp">经验</label><input id="cheat-exp" type="number" min="0" step="1" inputmode="numeric"></div>
-    <div class="row cheat"><label for="cheat-pot">潜能</label><input id="cheat-pot" type="number" min="0" step="1" inputmode="numeric"></div>
-    <div class="row cheat"><label for="cheat-gold">金钱</label><input id="cheat-gold" type="number" min="0" max="9999999" step="1" inputmode="numeric"></div>
-    <div class="row"><button id="cheat-read">读取当前</button><button id="cheat-add">经验潜能各加一千万</button><button id="cheat-apply">应用修改</button></div>
-    <div class="hint" id="cheat-msg" style="text-align:left;margin:2px 0 12px">修改立即生效。想保留请回到游戏，在菜单「功能」里存档。</div>
-  </div>
-  <div class="hint" style="text-align:left;margin:0 0 10px">网页版 __WEB_VERSION__</div>
-  <button id="set-close">返回游戏</button>
   <input id="import-file" type="file" accept=".sav,application/octet-stream" style="display:none">
 </div></div>
 
