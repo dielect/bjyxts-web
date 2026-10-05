@@ -42,7 +42,7 @@ end
 #--------------------------------------------------------------------------
 # 11 江湖货郎
 #--------------------------------------------------------------------------
-WebEncounter.add 11, '江湖货郎', where: %i[wild suburb], weight: 2, cooldown: 3 do |c|
+WebEncounter.add 11, '江湖货郎', show: { tile: 863 }, where: %i[wild suburb], weight: -> { WebEncounter.gold >= 20000 ? 4 : 2 }, cooldown: 3 do |c|
   c.text '一个挑着货担的货郎摇着拨浪鼓走过来：“走过路过，别错过！今儿个有几样稀罕货！”'
   c.choices(%w[看看货 不用了]) do |i|
     if i == 0
@@ -144,7 +144,7 @@ end
 #--------------------------------------------------------------------------
 # 15 比武招亲
 #--------------------------------------------------------------------------
-WebEncounter.add 15, '比武招亲', combat: true, where: :town, weight: 3, cooldown: 3,
+WebEncounter.add 15, '比武招亲', combat: true, show: { tile: 878 }, where: :town, weight: 3, cooldown: 3,
                  if: -> { !$game_switches[118] && WebEncounter.age >= 16 } do |c|
   c.if_script('$gender == "女"') do
     c.text '街口搭起一座擂台，一位员外高声道：“犬子比武招亲！哪位姑娘打赢他，老夫以鸳鸯剑为聘！”'

@@ -124,7 +124,7 @@ bandit = lambda do |c, enemy, toll, loot, share, exp, pot|
   end
 end
 
-WebEncounter.add 1, '山贼劫道', combat: true, where: :wild, weight: 2, cooldown: 4 do |c|
+WebEncounter.add 1, '山贼劫道', combat: true, show: { tile: 841 }, where: :wild, weight: -> { (WebEncounter.gold >= 5000 ? 4 : 2) * (WebEncounter.mountain? ? 2 : 1) }, cooldown: 4 do |c|
   c.if_script('WebRoute.route == :evil && WebRoute.sw(WebRoute::DONE)') do      # 血衣楼主（100_正邪分支.rb）
     c.text '一伙山贼从林子里窜出来，看清是你，扑通扑通跪了一地：“楼、楼主饶命！小的们有眼无珠……”'
     c.text '为首的捧上一包银子：“这点孝敬，不成敬意！”'
@@ -143,7 +143,7 @@ end
 #--------------------------------------------------------------------------
 # 2～4 温青：救他还是搜他的身，三段奇遇之后见分晓
 #--------------------------------------------------------------------------
-WebEncounter.add 2, '重伤的剑客', where: :wild, weight: 3, once: true,
+WebEncounter.add 2, '重伤的剑客', show: { tile: 879 }, where: :wild, weight: 3, once: true,
                  if: -> { WebEncounter.exp >= 10000 } do |c|
   c.text '路边草丛里躺着一个青衫剑客，浑身是血，腰间只剩一只空剑鞘。'
   c.text '他听见脚步声，勉强睁开眼，嘴唇动了动。'
@@ -227,7 +227,7 @@ end
 #--------------------------------------------------------------------------
 # 5 武学残页
 #--------------------------------------------------------------------------
-WebEncounter.add 5, '武学残页', where: :wild, weight: 2, cooldown: 2,
+WebEncounter.add 5, '武学残页', show: { tile: 457 }, where: :wild, weight: 2, cooldown: 2,
                  if: -> { $game_party.item_number(26) < 8 } do |c|
   c.text '一阵风卷着一页发黄的纸飘到你脚边，上面密密麻麻画着人形和经脉。'
   c.gain(:item, 26)
@@ -273,7 +273,7 @@ dice = lambda do |c, bet|
   end
 end
 
-WebEncounter.add 6, '骰子摊', where: :town, weight: 3, cooldown: 2 do |c|
+WebEncounter.add 6, '骰子摊', show: { tile: 847 }, where: :town, weight: 3, cooldown: 2 do |c|
   c.text '街角围着一圈人，一个尖嘴猴腮的汉子摇着骰盅，哗啦哗啦响。'
   c.text '“押大押小，买定离手！”'
   c.choices(%w[押一百两 押五百两 走开]) do |i|
@@ -288,7 +288,7 @@ end
 #--------------------------------------------------------------------------
 # 7 恶霸欺人（正派）  8 落单行商（邪派）
 #--------------------------------------------------------------------------
-WebEncounter.add 7, '恶霸欺人', combat: true, where: %i[wild suburb town], weight: 2, cooldown: 4,
+WebEncounter.add 7, '恶霸欺人', combat: true, show: { tile: 884 }, where: %i[wild suburb town], weight: 2, cooldown: 4,
                  if: -> { WebEncounter.good? } do |c|
   c.text '一个满脸横肉的恶霸揪着卖菜老汉的衣领。'
   c.text '“这个月的份子钱呢？拿不出来就砸了你的摊子！”'
@@ -322,7 +322,7 @@ WebEncounter.add 7, '恶霸欺人', combat: true, where: %i[wild suburb town], w
   end
 end
 
-WebEncounter.add 8, '落单行商', where: :wild, weight: 2, cooldown: 4,
+WebEncounter.add 8, '落单行商', show: { tile: 878 }, where: :wild, weight: 2, cooldown: 4,
                  if: -> { !WebEncounter.good? } do |c|
   c.text '一个挑着货担的行商独自赶路，担子沉甸甸的，不时紧张地四下张望。'
   c.choices(%w[拦路打劫 放他过去]) do |i|
@@ -340,7 +340,7 @@ end
 #--------------------------------------------------------------------------
 # 9 赏金猎人：作恶的后果
 #--------------------------------------------------------------------------
-WebEncounter.add 9, '赏金猎人', combat: true, where: %i[wild suburb], weight: 4, cooldown: 3,
+WebEncounter.add 9, '赏金猎人', combat: true, where: %i[wild suburb], weight: -> { 2 + [WebEncounter.wanted, 6].min }, cooldown: 3,
                  if: -> { ($game_variables[164] >= 2 || $game_variables[160] < 64) && WebGear.value(:no_bounty) == 0 && !WebRoute.hunted? } do |c|
   fight = lambda do
     c.fight(149, loot: [[:weapon, 36, 1, 25], [:armor, 35, 1, 25]],
@@ -385,7 +385,7 @@ RUMORS = [
    '“……商业街那个老叫化，你可别小看了。有人见过他一根竹棒，把七八个泼皮打得满地找牙……”'],
 ]
 
-WebEncounter.add 10, '江湖传闻', where: %i[town suburb], weight: 2, cooldown: 1,
+WebEncounter.add 10, '江湖传闻', show: { tile: 643 }, where: %i[town suburb], weight: 2, cooldown: 1,
                  if: -> { RUMORS.any? { |sw, cond, _| !$game_switches[sw] && eval(cond) } } do |c|
   c.text '路边茶摊上，几个江湖客压低了嗓门说话。你要了碗茶，凑近听了几句……'
   tell = lambda do |rest|
@@ -420,6 +420,35 @@ WebMod.edit 24 do |m|
       c.gain(:armor, 37)
       c.switch(113)
       c.text '得到了回春玉佩！'
+    end
+  end
+end
+
+#--------------------------------------------------------------------------
+# 28 游方郎中：受了伤更容易遇到（气血不到一半时最常见，满血时不出现）
+#   治好气血，也把受伤掉的气血上限补回来。道德很高的不收钱
+#--------------------------------------------------------------------------
+WebEncounter.add 28, '游方郎中', show: { tile: 847 }, where: %i[wild suburb], cooldown: 2,
+                 weight: -> { r = WebEncounter.hp_rate; r < 0.5 ? 8 : r < 0.8 ? 2 : 0 } do |c|
+  c.text '一个背着药箱的游方郎中拦住你，皱着眉看了看你的脸色：“这位客官，伤得不轻啊。”'
+  c.if_variable(160, 200, 1) do
+    c.text '郎中忽然认出了你：“原来是位大侠！行侠仗义落下的伤，老朽分文不取。”'
+    c.script "a = $game_actors[1]\na.maxhp = [a.maxhp, a.full_hp].max\na.hp = a.maxhp"
+    c.text '郎中替你推宫过血、敷上药膏，伤势全好了。'
+  end.else do
+    c.choices(%w[请他医治（二百两） 不必了]) do |i|
+      if i == 0
+        c.if_gold(200) do
+          c.gold(-200)
+          c.script "a = $game_actors[1]\na.maxhp = [a.maxhp, a.full_hp].max\na.hp = a.maxhp"
+          c.text '郎中替你推宫过血、敷上药膏，伤势全好了。'
+        end.else do
+          c.text '你摸了摸钱袋，还差一些。郎中叹了口气，塞给你一包草药：“省着点用吧。”'
+          c.script "a = $game_actors[1]\na.hp = [a.hp + a.maxhp / 4, a.maxhp].min"
+        end
+      else
+        c.text '“讳疾忌医，可不是好事。”郎中摇摇头走了。'
+      end
     end
   end
 end

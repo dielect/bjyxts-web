@@ -17,6 +17,11 @@
 #    after      [奇遇编号, n]：那段奇遇发生过、并且之后又经过了 n 次奇遇（用于“日后报恩 / 寻仇”）
 #    if         额外条件（lambda），例如 -> { WebEncounter.good? }
 #    combat     这段奇遇会打起来（含可以选择动手的）。两段战斗奇遇之间至少隔一段不打架的
+#    show       看得见的奇遇：{ tile: 841 } 或 { sprite: '行走图' }。抽中后先在主角附近的路边出现一个人或物，
+#               走过去碰到才开始；看见了也可以绕开。不写的是“找上门来”的（伏击、来访），抽中就开始
+#
+#  看得见的奇遇何时回收：触发后、离开这张地图时（无论触发没有）、走开 40 步以后、离得太远（超过 12 格）时。
+#  只有触发了才算发生过（计入冷却、最近记录）。
 #
 #  节奏：野外每走一步计 2，郊外和镇上计 1，计满 100～180 时有七成几率来一段（大地图约 50～90 步一次）；
 #        刚发生过的两段奇遇不会紧接着重复（池里只剩它们时除外）；
@@ -38,6 +43,10 @@ module WebEncounter
     town:   [3, 5, 15],
   }
   STEP_COST = { wild: 2, suburb: 1, town: 1 }
+  FIGURE_ID = 9001                               # 看得见的奇遇：临时事件的编号（原版地图事件远小于它）
+  FIGURE_LIFE = 80                               # 出现后再走这么多计步就回收（野外约 40 步）
+  FIGURE_FAR = 12                                # 离开这么远也回收
+  MOUNTAINS = [23, 24, 26, 27, 28, 42]           # 山野（山贼更多）
   COUNT_MIN, COUNT_RANGE = 100, 80
   @chance = 70                                   # 计满后真正来一段的几率（%）
 
@@ -47,7 +56,7 @@ module WebEncounter
     attr_reader :list
     attr_accessor :chance
 
-    def add(id, name, where:, weight: 1, once: false, cooldown: 0, after: nil, combat: false, if: nil, &block)
+    def add(id, name, where:, weight: 1, once: false, cooldown: 0, after: nil, combat: false, show: nil, if: nil, &block)
       cond = binding.local_variable_get(:if)
       raise ArgumentError, "WebEncounter #{id}：编号要在 1～#{MAX_ID}" unless (1..MAX_ID).include?(id)
       raise ArgumentError, "WebEncounter #{id}：重复定义" if @list[id]
@@ -56,7 +65,7 @@ module WebEncounter
       key = :"奇遇_#{id}"
       WebMod.auto_common_event(key, "奇遇-#{name}", &block)
       @list[id] = { id: id, name: name, maps: maps, weight: weight, once: once, cooldown: cooldown,
-                    after: after, combat: combat, cond: cond, key: key }
+                    after: after, combat: combat, show: show, cond: cond, key: key }
     end
 
     # ---- 存档里的记录
@@ -84,6 +93,24 @@ module WebEncounter
 
     def age
       $game_variables[157].to_i
+    end
+
+    # 情境（权重里用）
+    def gold
+      $game_party.gold
+    end
+
+    def hp_rate
+      a = $game_actors[1]
+      a.hp.to_f / [a.maxhp, 1].max
+    end
+
+    def wanted
+      $game_variables[164].to_i
+    end
+
+    def mountain?
+      MOUNTAINS.include?($game_map.map_id)
     end
 
     def exp
@@ -148,6 +175,10 @@ module WebEncounter
 
     def step
       r = region_of($game_map.map_id) or return
+      if @figure
+        @figure[:life] -= STEP_COST[r]
+        return
+      end
       reset_count if @count.nil?
       @count -= STEP_COST[r]
       @ready = true if @count <= 0
@@ -155,12 +186,15 @@ module WebEncounter
 
     # 地图画面每帧调用：攒够步数、没有别的事件在跑时开始一段奇遇
     def update
+      tidy_figure
       return unless @ready
-      return if busy?
+      return if busy? || @figure
       @ready = false
       reset_count
       return if rand(100) >= @chance
       e = pick
+      e = nil if e && e[:show] && !spawn(e)
+      return if @figure
       unless e
         # 战斗奇遇后只剩战斗奇遇可选：这次空过，下次照常（不然就再也不来了）
         $game_variables[VAR_COMBAT] = 0 if combat_rest?
@@ -176,15 +210,117 @@ module WebEncounter
         $game_player.moving? || $game_player.move_route_forcing
     end
 
-    # 记录并启动（测试也直接调用它）
-    def start(e)
-      e = @list.fetch(e) if e.is_a?(Integer)
+    #------------------------------------------------------------------ 看得见的奇遇
+    attr_reader :figure
+
+    # 在主角附近找一处站得住、走得到、在屏幕里的空地，放一个临时事件
+    def spawn(e)
+      spot = find_spot or return false
+      x, y = spot
+      ev = RPG::Event.new(x, y)
+      ev.id = FIGURE_ID
+      ev.name = "奇遇-#{e[:name]}"
+      pg = ev.pages[0]
+      if e[:show][:sprite]
+        pg.graphic.character_name = e[:show][:sprite]
+        pg.direction_fix = true
+      else
+        pg.graphic.tile_id = e[:show][:tile]
+      end
+      pg.trigger = 1                               # 碰到就开始（站在旁边按确定也行）
+      pg.list = [RPG::EventCommand.new(355, 0, ["WebEncounter.claim(#{e[:id]})"]),
+                 RPG::EventCommand.new(117, 0, [WebMod.auto_common_event_id(e[:key])]),
+                 RPG::EventCommand.new(0, 0, [])]
+      gev = Game_Event.new($game_map.map_id, ev)
+      $game_map.events[FIGURE_ID] = gev
+      if (sprites = character_sprites)
+        sprites.insert(-2, Sprite_Character.new(spriteset.instance_variable_get(:@viewport1), gev))
+      end
+      @figure = { id: e[:id], map: $game_map.map_id, life: FIGURE_LIFE }
+      true
+    end
+
+    # 碰到了：这才算发生过；人物马上消失，等事件跑完再收拾
+    def claim(id)
+      record(@list.fetch(id))
+      ev = $game_map.events[FIGURE_ID]
+      ev.erase if ev
+      @figure[:claimed] = true if @figure
+    end
+
+    # 回收：触发完、换了地图、走远了、过了太久
+    def tidy_figure
+      f = @figure or return
+      if f[:map] != $game_map.map_id || $game_map.events[FIGURE_ID].nil?
+        @figure = nil                              # 换了地图：新地图的事件里本来就没有它
+        return
+      end
+      return if $game_system.map_interpreter.running?
+      ev = $game_map.events[FIGURE_ID]
+      far = ($game_player.x - ev.x).abs + ($game_player.y - ev.y).abs > FIGURE_FAR
+      remove_figure if f[:claimed] || f[:life] <= 0 || far
+    end
+
+    def remove_figure
+      ev = $game_map.events.delete(FIGURE_ID)
+      if ev && (sprites = character_sprites)
+        sprites.reject! { |sp| sp.character.equal?(ev) && (sp.dispose; true) }
+      end
+      @figure = nil
+    end
+
+    def spriteset
+      $scene.is_a?(Scene_Map) ? $scene.instance_variable_get(:@spriteset) : nil
+    end
+
+    def character_sprites
+      spriteset && spriteset.instance_variable_get(:@character_sprites)
+    end
+
+    # 主角走得到（3～7 步）、在屏幕里、不压着别的事件和出入口的格子，优先放在前方
+    def find_spot
+      px, py = $game_player.x, $game_player.y
+      dirs = [[2, 0, 1], [4, -1, 0], [6, 1, 0], [8, 0, -1]]
+      taken = $game_map.events.values.map { |ev| [ev.x, ev.y] }
+      seen = { [px, py] => 0 }
+      queue = [[px, py]]
+      until queue.empty?
+        x, y = queue.shift
+        d0 = seen[[x, y]]
+        next if d0 >= 7
+        dirs.each do |d, dx, dy|
+          xy = [x + dx, y + dy]
+          next if seen.key?(xy) || taken.include?(xy) || !$game_player.passable?(x, y, d)
+          seen[xy] = d0 + 1
+          queue << xy
+        end
+      end
+      sx, sy = $game_map.display_x / 128, $game_map.display_y / 128
+      fx, fy = { 2 => [0, 1], 4 => [-1, 0], 6 => [1, 0], 8 => [0, -1] }[$game_player.direction]
+      spots = seen.select do |(x, y), dist|
+        dist.between?(3, 7) && x.between?(sx + 1, sx + 18) && y.between?(sy + 1, sy + 13) &&
+          dirs.count { |_, dx, dy| seen.key?([x + dx, y + dy]) } >= 2   # 不堵死单格宽的路
+      end
+      return nil if spots.empty?
+      best = spots.keys.max_by { |x, y| (x - px) * fx + (y - py) * fy + rand * 3 }
+      best
+    end
+
+    #------------------------------------------------------------------ 记录并启动
+    # 记一笔“发生过”
+    def record(e)
       n = total + 1
       $game_variables[VAR_TOTAL] = n
       $game_variables[VAR_STAMP + e[:id]] = n
       $game_variables[VAR_COMBAT] = n if e[:combat]
       $game_variables[VAR_RECENT[1]] = $game_variables[VAR_RECENT[0]]
       $game_variables[VAR_RECENT[0]] = e[:id]
+    end
+
+    # 记录并启动（测试也直接调用它）
+    def start(e)
+      e = @list.fetch(e) if e.is_a?(Integer)
+      record(e)
       $game_temp.common_event_id = WebMod.auto_common_event_id(e[:key])
       e
     end

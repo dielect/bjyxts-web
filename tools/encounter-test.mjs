@@ -202,6 +202,54 @@ check.call($game_temp.common_event_id == 0 && !WebEncounter.combat_rest?, '只�
 WebEncounter.list.replace(saved)
 check.call(%w[1 4 7 9 12 14 15 22 24 25 26].all? { |i| WebEncounter.list[i.to_i][:combat] } && !WebEncounter.list[5][:combat], '战斗奇遇的标记')
 
+# 看得见的奇遇：出现、碰到才算发生、各种回收
+reset.call
+$game_map.setup(1); $game_player = Game_Player.new; $game_player.moveto(10, 10); $game_player.instance_variable_set(:@direction, 2)
+$game_temp.common_event_id = 0
+e5 = WebEncounter.list[5]
+check.call(WebEncounter.spawn(e5) && WebEncounter.figure, '武学残页应在路边出现')
+ev = $game_map.events[WebEncounter::FIGURE_ID]
+d = ($game_player.x - ev.x).abs + ($game_player.y - ev.y).abs
+check.call(d.between?(3, 9) && ev.tile_id == 457 && ev.trigger == 1, "出现的位置与外观：距离 #{d}，图块 #{ev.tile_id}")
+check.call(WebEncounter.total == 0, '出现时还不算发生过')
+WebEncounter.step; WebEncounter.instance_variable_set(:@ready, true); WebEncounter.update
+check.call(WebEncounter.figure[:id] == 5 && $game_temp.common_event_id == 0, '有人在路边时不再抽新的')
+WebEncounter.claim(5)
+WebEncounter.instance_variable_set(:@ready, false)
+check.call(WebEncounter.total == 1 && WebEncounter.stamp(5) == 1 && ev.instance_variable_get(:@erased), '碰到才算发生，人物马上消失')
+WebEncounter.update
+check.call(WebEncounter.figure.nil? && $game_map.events[WebEncounter::FIGURE_ID].nil?, '事件跑完后回收')
+# 没碰到：走开太久、走远、换地图都回收，而且不算发生过
+WebEncounter.spawn(e5)
+60.times { WebEncounter.step }
+WebEncounter.update
+check.call(WebEncounter.figure.nil? && WebEncounter.total == 1, '走开 40 步后回收，不算发生')
+WebEncounter.spawn(e5)
+$game_player.moveto(30, 30); WebEncounter.update
+check.call(WebEncounter.figure.nil?, '走远后回收')
+$game_player.moveto(10, 10)
+WebEncounter.spawn(e5)
+$game_map.setup(12); WebEncounter.update
+check.call(WebEncounter.figure.nil? && $game_map.events[WebEncounter::FIGURE_ID].nil?, '换了地图回收')
+check.call(WebEncounter.total == 1, '没碰到的都不算发生过')
+
+# 情境权重
+reset.call
+$game_map.setup(1)
+w = lambda { |id| WebEncounter.weight_of(WebEncounter.list[id]) }
+$game_party.lose_gold($game_party.gold)
+check.call(w.call(1) == 2, "山贼：没钱 #{w.call(1)}")
+$game_party.gain_gold(6000)
+check.call(w.call(1) == 4, '山贼：露财翻倍')
+$game_map.setup(24)
+check.call(w.call(1) == 8, '山贼：山里再翻倍')
+$game_variables[164] = 3
+check.call(w.call(9) == 5, '赏金猎人：通缉越高越勤')
+a = $game_actors[1]; a.hp = a.maxhp
+check.call(w.call(28) == 0, '满血不遇郎中')
+a.hp = 1
+check.call(w.call(28) == 8, '重伤时最常遇郎中')
+
 # 走路计数：野外每步 2，镇上 1，不在奇遇区域不计
 reset.call
 WebEncounter.instance_variable_set(:@count, 10)
@@ -220,7 +268,8 @@ $game_player.moveto(5, 5)
 $game_temp.common_event_id = 0
 WebEncounter.chance = 100
 WebEncounter.update
-check.call($game_temp.common_event_id > 0 && WebEncounter.total == 1, '攒满后应启动一段奇遇')
+check.call(($game_temp.common_event_id > 0 && WebEncounter.total == 1) || (WebEncounter.figure && WebEncounter.total == 0), '攒满后应启动一段奇遇，或在路边出现一个看得见的奇遇')
+WebEncounter.remove_figure if WebEncounter.figure
 check.call(!WebEncounter.instance_variable_get(:@ready), '启动后应重新计步')
 $game_temp.common_event_id = 0
 
