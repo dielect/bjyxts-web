@@ -166,8 +166,8 @@ WebMod.common_event 33, '吃金鲤' do |c|
   c.say 'WebLife.eat(:gold)'
 end
 # 放生：乌龟、锦鲤（道德 +3 / +5）
-{ 34 => ['放生乌龟', 3, '你把老乌龟放回荷塘，它慢吞吞地划了几下水，回头看了你一眼，沉了下去。'],
-  35 => ['放生锦鲤', 5, '你把锦鲤放回塘里，它摆了摆尾巴，在你脚边绕了三圈才游走。都说锦鲤报恩，也许会有好运吧。'] }.each do |id, (name, good, text)|
+{ 34 => ['放生乌龟', 3, '你把老乌龟放回溪里，它慢吞吞地划了几下水，回头看了你一眼，沉了下去。'],
+  35 => ['放生锦鲤', 5, '你把锦鲤放回溪里，它摆了摆尾巴，在你脚边绕了三圈才游走。都说锦鲤报恩，也许会有好运吧。'] }.each do |id, (name, good, text)|
   WebMod.common_event id, name do |c|
     c.reward morality: good
     c.text text

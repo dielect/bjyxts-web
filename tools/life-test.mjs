@@ -85,13 +85,13 @@ fresh.call
 29.upto(38) { |id| $game_party.lose_item(id, 99) }
 $game_party.lose_item(28, 99); $game_party.lose_item(17, 99)
 check.call(L.jose_title == '客官', '一开始叫客官')
-check.call(L.show_jose.include?('都见过'), '身上没鱼时')
+check.call(L.show_jose.include?('一条鱼也没有'), '身上没鱼时说没鱼，不是“都见过”')
 $game_party.gain_item(28, 1); $game_party.gain_item(29, 1)
 L.show_jose
 check.call(L.jose[:favor] == 2 && L.jose_gift? && L.jose_title =~ /小(兄弟|姑娘)/, "给看两种新鱼：交情 #{L.jose[:favor]}，称呼 #{L.jose_title}")
 check.call(L.jose_gift_text.include?('厨子') && L.flag?(:cook_intro), '交情 2 介绍厨师')
-L.show_jose
 check.call(L.jose[:favor] == 2, '看过的鱼不再加交情')
+check.call(L.show_jose.include?('都见过'), '身上的鱼都给他看过了才说“都见过”')
 [30, 31, 32].each { |id| $game_party.gain_item(id, 1) }
 n = $game_party.item_number(39); L.show_jose; L.jose_gift_text
 check.call(L.jose[:favor] == 5 && $game_party.item_number(39) == n + 10, '交情 5 送十个香饵')

@@ -30,11 +30,11 @@ FISH_ITEM = { like: 17, common_event_id: 0, occasion: 3 }       # 以鲤鱼为�
   [36, '墨鱼',   :sea,  [1, 2],       1, [8, 32],  70,  '一碰就喷墨的墨鱼'],
   [37, '石斑鱼', :sea,  [2],          2, [24, 96], 200, '浑身斑点的石斑鱼，秋天藏在礁石边'],
   [38, '红鲷',   :sea,  [3, 0],       2, [16, 48], 180, '通红的鲷鱼，冬春时节才有'],
-  # ---- 商家堡荷塘、西郊小溪、大雪山冰溪（冰溪只有冬天能钓）
-  [42, '泥鳅',   :lotus,  [0, 1, 2, 3], 0, [1, 3],    15,   '滑溜溜的泥鳅，钻在荷塘的淤泥里'],
+  # ---- 玉女峰花溪、西郊小溪、大雪山冰溪（冰溪只有冬天能钓）
+  [42, '泥鳅',   :lotus,  [0, 1, 2, 3], 0, [1, 3],    15,   '滑溜溜的泥鳅，钻在溪底的淤泥里'],
   [43, '黄鳝',   :lotus,  [1, 2],       1, [6, 24],   60,   '黄澄澄的鳝鱼，夏秋最肥'],
   [44, '乌龟',   :lotus,  [1, 2],       2, [16, 64],  180,  '一只慢吞吞的老乌龟，壳上长着青苔。可以放生'],
-  [45, '锦鲤',   :lotus,  [0, 1, 2, 3], 3, [16, 64],  1000, '红白相间的锦鲤，商家堡主当年放进塘里的。可以放生'],
+  [45, '锦鲤',   :lotus,  [0, 1, 2, 3], 3, [16, 64],  1000, '红白相间的锦鲤，花间派弟子养在溪里的。可以放生'],
   [46, '白条',   :stream, [0, 1, 2, 3], 0, [1, 4],    10,   '细长的小白条，溪水里成群结队'],
   [47, '马口鱼', :stream, [0, 1, 2],    0, [2, 8],    20,   '嘴巴大大的马口鱼，咬钩又急又狠'],
   [48, '黄颡鱼', :stream, [1, 2, 3],    1, [4, 16],   60,   '会“嘎嘎”叫的黄颡鱼，背上有刺'],
@@ -138,7 +138,7 @@ fishing = lambda do |c, water|
         c.script "WebLife.start_cast(#{water.inspect}, false)"
       end
       c.text({ pond: '你甩出钓线，往塘边一蹲，盯着浮子。', sea: '你把钓线甩进海里，海浪一下一下地拍着礁石。',
-               lotus: '你拨开荷叶，把钓线轻轻放进荷塘。', stream: '你把钓线甩进溪水，浮子顺着水流一漂一漂。',
+               lotus: '你在花溪边坐下，把钓线放进清澈的溪水。', stream: '你把钓线甩进溪水，浮子顺着水流一漂一漂。',
                ice: '你在冰面上凿了个窟窿，把钓线垂了下去，寒气直往骨头里钻。' }[water])
       c.script "a = $game_actors[1]\na.hp -= 10 if a.hp > 10\nWebLife.pass_time(WebLife.rod_fx(:fast) > 0 ? 1 : 2)"
       c.if_script('WebLife.interlude?') do              # 钓鱼时的小插曲
@@ -202,9 +202,9 @@ WebMod.edit 13 do |m|                               # 南郊鱼塘：原版的�
   m.rewrite(9) { |c| fishing.call(c, :pond) }
 end
 
-WebMod.edit 29 do |m|                               # 商家堡荷塘：左下的水塘，站在上方或左边
-  m.event 4, 10, name: '钓位', tile: 712 do |c| fishing.call(c, :lotus) end
-  m.event 4, 11, name: '钓位', tile: 712 do |c| fishing.call(c, :lotus) end
+WebMod.edit 23 do |m|                               # 玉女峰花溪：站在溪左边朝右
+  m.event 4, 20, name: '钓位', tile: 712 do |c| fishing.call(c, :lotus) end
+  m.event 4, 23, name: '钓位', tile: 712 do |c| fishing.call(c, :lotus) end
 end
 
 WebMod.edit 12 do |m|                               # 平安镇西郊篱笆里的小溪：站在溪上方往下（篱笆外那段走不到）
@@ -246,7 +246,7 @@ module WebLife
 
     def jose_greeting
       case jose_tier
-      when 0 then '你也喜欢钓鱼吗？南郊有个鱼塘，冰火岛渡口能钓海鱼，听说西郊的小溪、商家堡的荷塘也有鱼！'
+      when 0 then '你也喜欢钓鱼吗？南郊有个鱼塘，冰火岛渡口能钓海鱼，听说西郊的小溪、玉女峰的花溪也有鱼！'
       when 1 then "#{jose_title}来啦！最近又钓着什么了？"
       when 2 then "哟，#{jose_title}！快坐，正想跟你聊聊鱼呢。"
       else "#{jose_title}大驾光临！今儿个想去哪儿下竿？"
@@ -263,7 +263,12 @@ module WebLife
 
     # 给荷西看鱼：每种他没见过的鱼加一点交情，付一点“看鱼钱”
     def show_jose
-      new = FISH.keys.select { |id| $game_party.item_number(id) > 0 && !jose[:shown].include?(id) }
+      have = FISH.keys.select { |id| $game_party.item_number(id) > 0 }
+      if have.empty?
+        @jose_gifts = []
+        return '你身上一条鱼也没有啊。钓到了拿来给我瞧瞧！'
+      end
+      new = have.reject { |id| jose[:shown].include?(id) }
       if new.empty?
         @jose_gifts = []
         return '这些我都见过啦。钓到没见过的，记得拿来给我瞧瞧！'

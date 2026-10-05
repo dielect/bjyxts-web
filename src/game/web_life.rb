@@ -27,7 +27,7 @@ module WebLife
   SEASONS = %w[春 夏 秋 冬]
 
   # ---- 水域
-  WATERS = { pond: '南郊鱼塘', sea: '冰火岛渡口', lotus: '商家堡荷塘', stream: '西郊小溪', ice: '大雪山冰溪' }
+  WATERS = { pond: '南郊鱼塘', sea: '冰火岛渡口', lotus: '玉女峰花溪', stream: '西郊小溪', ice: '大雪山冰溪' }
 
   # ---- 鱼：物品编号 => { name:, water:, seasons:, rarity:, weight: [最小两, 最大两], price: }
   #   water   水域，见 WATERS
@@ -211,7 +211,7 @@ module WebLife
     end
 
     NO_BITE = { pond: '过了很久也没有鱼上钩，你一收钓竿，到树荫下歇着去了。', sea: '潮水涨了又退，一条鱼也没咬钩。',
-                lotus: '荷叶下静悄悄的，浮子一动不动。', stream: '溪水哗哗地流，鱼钩上的饵早被冲没了。',
+                lotus: '花溪里静悄悄的，浮子一动不动。', stream: '溪水哗哗地流，鱼钩上的饵早被冲没了。',
                 ice: '冰窟窿里的水慢慢结了一层薄冰，一条鱼也没来。' }
 
     def no_bite_text
@@ -289,7 +289,7 @@ module WebLife
         a.hp -= lost if lost > 0
         '脚下的冰面“咔嚓”一声裂开一道缝，你一个趔趄，半条腿浸进了冰水里，冻得直哆嗦。'
       when :lotus
-        '一阵风吹过，满塘荷花轻轻摇曳，清香扑鼻。你心里一静，浮子也看得格外清楚。'
+        '溪边的野花开了一大片，风一吹，花香扑鼻。你心里一静，浮子也看得格外清楚。'
       when :cat
         '一只瘦巴巴的野猫蹲在你脚边，眼巴巴地盯着你的鱼篓。'
       else ''

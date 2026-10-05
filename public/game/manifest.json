@@ -1,6 +1,6 @@
 {
 "wasm": "ruby.wasm?v=88af34da0b",
-"scripts": "game/scripts.json?v=c1ede4c32a",
+"scripts": "game/scripts.json?v=25a457261b",
 "images": [
 "Graphics/Animations/Hit.png",
 "Graphics/Battlebacks/BG.png",
@@ -200,5 +200,5 @@
 "Data/Troops.rxdata",
 "Data/Weapons.rxdata"
 ],
-"version": "1.0.0+202610051746"
+"version": "1.0.0+202610051804"
 }
