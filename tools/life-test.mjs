@@ -382,7 +382,7 @@ a.equip(1, 0); a.equip(3, 0); a.equip(2, 0); a.equip(5, 0)
 $game_variables[19] = 2000000; $game_variables[71] = 1; $game_variables[131] = 0
 10.times { L.data[:stock] = {}; L.start_chop(:basin); L.chop(0) if $game_variables[9] == 1 }
 check.call($game_variables[71] > 1, "砍柴练攀山步：#{$game_variables[71]}")
-check.call(WebSkill.category(71) == WebSkill::MOVE && WebSkill.base_of(71) == 46 && WebSkill::PERFORMS[71] == [32, 33], '攀山步是轻功，带两个斧法绝招')
+check.call(WebSkill.category(71) == WebSkill::MOVE && WebSkill.base_of(71) == 46 && WebSkill::PERFORMS[71] == [32, 33, 34], '攀山步是轻功，带三个斧法绝招')
 $game_variables[31] = 71
 dt = draw_defend_text($game_actors[1], Struct.new(:name).new("山豹")) rescue "ERR #{$!.message}"
 check.call(dt.start_with?('你') && dt.include?('|'), "启用攀山步时有闪避描述：#{dt}")
@@ -415,6 +415,67 @@ check.call(orders.between?(4, 20), "砍过柴后约四分之一是收木柴：#{
 # 称号
 L.data[:skill][:wood] = 250
 check.call(L.wood_title == '樵隐', "樵技 9 级：#{L.wood_title}")
+# ---- 护林：开头、一个月后神木倒下
+$game_variables[71] = 1
+check.call(L.grove_start_due?, '学了攀山步、樵技 6 级以上，歌樵子说起护林')
+L.grove_start
+check.call(L.grove_stage == :crew && $game_switches[151] && !L.grove_start_due? && L.tree_text.include?('锯出'), '护林开始：伐木队上山')
+L.grove_tick
+check.call(L.grove_stage == :crew, '一个月内神木还在')
+$game_variables[158] += 251
+L.grove_tick
+check.call(L.grove_stage == :fallen && !$game_switches[151] && $game_switches[152] && L.grove_fallen_due? && !L.grove_reward_due?, '一个月没人管，神木倒了')
+# ---- 凑梁木：护林（生活）
+L.data[:grove] = {}; L.data[:flags].delete(:tiefu); $game_switches[152] = false
+L.grove_start
+check.call(!L.beams_ready?, '梁木不够')
+$game_party.gain_item(70, 3); $game_party.gain_item(71, 2)
+g0 = $game_party.gold
+t = L.grove_beams
+check.call(L.grove_stage == :beams && !$game_switches[151] && !$game_switches[152] && $game_party.gold - g0 == (150 * 3 + 200 * 2) * 3 / 2 && $game_party.item_number(70) == 0, "凑够梁木：#{t}")
+check.call(L.grove_reward_due? && L.grove_praise.include?('楠木'), '护住神木后歌樵子传功')
+# 铁斧断岳：传了才有，要拿斧头
+$game_variables[31] = 71; $game_variables[71] = 130; $game_variables[42] = 130; a.equip(0, 77)
+study_skill
+check.call(!a.skills.include?(34), '没传之前学不到铁斧断岳')
+L.grove_reward
+check.call(a.skills.include?(34) && $game_party.item_number(82) == 1 && !L.grove_reward_due?, '传铁斧断岳、给铁木心')
+check.call(WebSkill.requirements_for(34, nil).none? { |_, lv| lv == 9999 }, '拿斧头能使铁斧断岳')
+a.equip(0, 0)
+check.call(WebSkill.requirements_for(34, nil).any? { |_, lv| lv == 9999 }, '空手使不出铁斧断岳')
+$game_variables[31] = 0; study_skill
+# 管事收好木料（凑过梁木的多给两成）
+$game_party.gain_item(73, 1); g0 = $game_party.gold
+t = L.steward_buy
+check.call($game_party.gold - g0 == 1800 && $game_party.item_number(73) == 0, "管事高价收沉香木：#{t}")
+# 铁木神斧：铁木心 + 斧头，三天
+check.call(L.forge_offer?, '有铁木心，歌樵子提出打斧')
+$game_party.gain_weapon(77, 1)
+check.call(L.forge_axe == 77, '开山斧当胚子')
+L.forge_start
+check.call(L.forging? && !L.forge_ready? && !L.forge_offer? && $game_party.item_number(82) == 0, '斧子在打')
+$game_variables[158] += 26
+check.call(L.forge_ready?, '三天后打好')
+w0 = $game_party.weapon_number(79)
+L.forge_give
+check.call($game_party.weapon_number(79) == w0 + 1 && !L.forge_offer? && !L.forge_ready? && L.axe? == false, '得到铁木神斧')
+a.equip(0, 79)
+check.call(L.axe? && WebGear.set_count(WebGear.sets[:樵夫]) >= 1, '铁木神斧算斧头、算樵夫套')
+a.equip(0, 0)
+# ---- 帮商家堡砍树
+L.data[:grove] = {}; L.data[:flags].delete(:tiefu); $game_switches[152] = false
+L.grove_start
+g0 = $game_party.gold
+L.grove_sell
+check.call(L.grove_stage == :sold && $game_switches[152] && $game_party.gold - g0 == 5000 && L.steward_rate == 1.5 && !L.grove_reward_due?, '帮商家堡砍树：五千两，以后高价收木料，不传功')
+check.call(L.tree_text.include?('树墩') && L.geqiao_cold.size > 0, '只剩树墩，歌樵子不理人')
+# ---- 宣花大斧奇遇的条件
+a.equip(0, 77)
+e29 = WebEncounter.list[29]
+check.call(e29 && e29[:cond].call, '拿斧头、学过攀山步时可能遇到宣花大斧')
+L.set_flag(:xuanhua)
+check.call(!e29[:cond].call, '拿到宣花大斧后不再遇到')
+a.equip(0, 0)
 a.equip(0, 0)
 
 errs.empty? ? 'ok' : errs.join("\n")
