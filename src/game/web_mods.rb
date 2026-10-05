@@ -460,7 +460,8 @@ module WebMod
     #         corpse：死后显示的图块，默认 508
     #         杀死后：自开关 A 打开（事件换成第 2 页的尸体），$live[编号] 记为 false。
     #         name、tile 不写时取敌人定义里的。
-    #   shop：卖的东西，[[:weapon, 31], [:item, 2], [:armor, 4]]，加一个“交易”选项（与原版小商贩相同）
+    #   shop：卖的东西，[[:weapon, 31], [:item, 2], [:armor, 4]]，加一个“交易”选项（与原版小商贩相同）；
+    #         也可以是 lambda { |c| ... }，自己写“交易”分支（按条件 c.shop 不同的货，见 070_门派军需官.rb）
     #   sprite：自制外观（Graphics/Characters 里的行走图，用 tools/make_npc_sprite.py 从 32×32 素材生成），
     #         代替图块集里的头像。tile 仍要填一个头像编号：不写 battler 时战斗图按它取
     LOOK_LINE = 20
@@ -506,7 +507,7 @@ module WebMod
           when '交谈' then block ? block.call(c) : Array(talk).each { |t| c.text t }
           when '查看' then c.script "$scene=Lookover.new(#{args})"
           when '战斗' then fight_commands(c, fight)
-          when '交易' then shop_commands(c, shop)
+          when '交易' then shop.respond_to?(:call) ? shop.call(c) : c.shop(shop)
           end
         end
         c.script '@s.dispose'
@@ -525,8 +526,8 @@ module WebMod
         j = i + 1
         j += 1 while list[j] && list[j].code == 605
         add = goods.map do |kind, id|
-          raise ArgumentError, "goods 种类应是 :item / :weapon / :armor" unless SHOP_KINDS[kind]
-          RPG::EventCommand.new(605, list[i].indent, [SHOP_KINDS[kind], id])
+          raise ArgumentError, "goods 种类应是 :item / :weapon / :armor" unless Commands::SHOP_KINDS[kind]
+          RPG::EventCommand.new(605, list[i].indent, [Commands::SHOP_KINDS[kind], id])
         end
         list.insert(j, *add)
         done += 1
@@ -576,17 +577,6 @@ module WebMod
           lose = f[:lose] || :death
           lose == :death ? c.cmd(117, 25) : c.text(lose.to_s)
         })
-    end
-
-    SHOP_KINDS = { item: 0, weapon: 1, armor: 2 }
-
-    def shop_commands(c, goods)
-      raise ArgumentError, 'shop 至少要有一样东西' if goods.empty?
-      goods.each { |kind, _| raise ArgumentError, "shop 种类应是 :item / :weapon / :armor" unless SHOP_KINDS[kind] }
-      c.script '$game_temp.shop_type=1'
-      kind, id = goods[0]
-      c.cmd(302, SHOP_KINDS[kind], id)
-      goods[1..].each { |k, i| c.cmd(605, SHOP_KINDS[k], i) }
     end
 
     # 第 2 页：自开关 A 打开后显示尸体，不能交互
@@ -715,6 +705,18 @@ module WebMod
           win&.call
         },
         escape: escape, lose: lose)
+    end
+
+    # 商店（与原版小商贩相同）：goods 为 [[:weapon, 31], [:item, 2], [:armor, 4]]
+    SHOP_KINDS = { item: 0, weapon: 1, armor: 2 }
+    def shop(goods)
+      raise ArgumentError, 'shop 至少要有一样东西' if goods.empty?
+      goods.each { |kind, _| raise ArgumentError, 'shop 种类应是 :item / :weapon / :armor' unless SHOP_KINDS[kind] }
+      script '$game_temp.shop_type=1'
+      kind, id = goods[0]
+      cmd(302, SHOP_KINDS[kind], id)
+      goods[1..].each { |k, i| cmd(605, SHOP_KINDS[k], i) }
+      self
     end
 
     # 选项。块对每个选项调用一次，参数是选项下标；取消键进入单独的取消分支（与原版 NPC 一致）

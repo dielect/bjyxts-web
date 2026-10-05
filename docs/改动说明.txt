@@ -6,6 +6,19 @@
 新增类格式：类名/类的作用；方法：“方法名：用途”；属性：“属性：用途”
 行数指原工程（PC V1.21 导出脚本，见 game-src/scripts）中的行号。
 
+2026-10-05 装备池扩充到 100 件、13 套套装（第一批：引擎、数据、商店、门派军需官）
+-----------------------------------------------------------------
+src/game/web_gear.rb/重写/WebGear 模块：特效扩充到 25 种（暴击、武学威力、斩杀、破甲、吸血、吸内、连击、中毒、点穴、缴械、迟滞、闪避、减伤、化劲、金刚、反震、反击、护心、定心、回春、回内、武学精进、绝招省力、神行、财运），可带生效条件（启用的武功、门派、空手、正邪）；套装按穿上的件数分档生效；防具位扩到 7 个（原版的披风、腰带、钓竿位）；物品说明按页自动生成特效与套装说明。
+  挂接：Game_Variables#[] / []=（武学精进：战斗中读武功等级时加上装备加成，写回时扣掉，存档里的等级不变；回到地图时一定撤掉）、Game_Battler#attack_effect / skill_effect、Game_Actor#add_state（定心）、Game_Enemy#gold（财运）、WebSkill.sp_cost（绝招省力）、Window_Item#update_help（分页说明）、Scene_Shop#update_buy（购买时顶栏显示商品说明）、Scene_Battle#start_phase1 / battle_end / update_phase4_step2、Scene_Map#main。均以 alias 包装，没穿带特效的装备时行为不变。
+050 - Window_Selectable/Window_Selectable/update/170、185/物品说明的左右翻页从固定两页改为按 Window_Item#help_pages 循环（原版物品仍是两页）。
+101 - Scene_Battle 2/Scene_Battle/update_phase2_escape/88/逃跑判定前加 WebGear.escape?（神行：逃跑必定成功）。
+src/game/mods/050_江湖装备.rb/重写/武器 34～73、防具 32～102 共 111 件装备与特效，13 套套装；逍遥套接入小无相功模仿度与折梅手追加几率；裁缝店、杂货店、兵器行添普通装备。
+src/game/mods/070_门派军需官.rb/新增/六大门派驻地各一名军需官，只卖本门套装给本门弟子，按本门内功 30 / 60 / 100 / 150 级分批开放。
+src/game/mods/010_打狗棒法.rb/棍棒摊/添枣木棍、镔铁齐眉棍。
+src/game/mods/060_江湖奇遇.rb/赏金猎人/黑风寨套 5 件时不再出现；骰子摊的出千改查装备特效。
+src/game/web_mods.rb/Commands/新增 shop（商店指令，原 Builder 内部方法移来）；npc 的 shop 参数可以是 lambda，自己写“交易”分支。
+tools/gear-test.mjs/新增/装备数据、说明分页、商店与军需官分档、套装件数与条件、武学精进的读写、25 种特效逐个结算。tools/encounter-test.mjs 的装备部分移到这里。
+
 2026-10-05 江湖奇遇；装备池扩充；修复绿玉竹杖无法拾取
 ------------------------------------------------
 src/game/web_encounters.rb/新增/WebEncounter 模块：江湖奇遇引擎。在野外、郊外、镇上走动时按格计步，攒够后按权重从奇遇池抽一段（公共事件），支持只发生一次、冷却、“某段奇遇之后再过几段”和自定义条件；记录存在变量 253～255、261～300。挂接 Game_Player#update（主角换格时计步，本作的移动方法不调用 increase_steps）与 Scene_Map#update（没有事件、对话、移动时启动）。构建时作为脚本「web:江湖奇遇」紧接 web:地图扩展 载入。

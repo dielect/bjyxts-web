@@ -147,7 +147,7 @@ WebMod.edit 15 do |m|
   # 外观：assets/npcs/32x32/staff-vendor-v2.png，用 tools/make_npc_sprite.py 生成 Npc_StaffVendor
   m.npc 20, 18, name: '棍棒摊主', tile: 872, sprite: 'Npc_StaffVendor',
         look: { age: 4, level: 8, attack: 3, items: '布衣', text: '一个膀大腰圆的汉子，摊子上横七竖八堆着各色棍棒。' },
-        shop: [[:weapon, 31], [:weapon, 32]] do |c|
+        shop: [[:weapon, 63], [:weapon, 31], [:weapon, 32], [:weapon, 64]] do |c|   # 枣木棍、镔铁齐眉棍见 050
     c.random(2) do |i|
       if i == 0
         c.text '上好的白蜡杆、熟铜棍，练棍法的少侠来瞧瞧！'

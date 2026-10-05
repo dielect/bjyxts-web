@@ -1,4 +1,4 @@
-// 江湖奇遇（src/game/web_encounters.rb、mods/060）与装备特效（web_gear.rb、mods/050）的回归测试。
+// 江湖奇遇（src/game/web_encounters.rb、mods/060）的回归测试。装备特效见 gear-test.mjs。
 //   node tools/encounter-test.mjs
 // 对话和战斗的实际流程在浏览器里验证；这里检查规则、数据和事件指令。
 // 读的是构建产物，改完先运行 python3 tools/build.py --fast。
@@ -45,21 +45,7 @@ ces.compact.each do |ce|
   check.call(ce.list[-1].code == 0 && ce.list[-1].indent == 0, "公共事件 #{ce.id} 结尾不对")
 end
 
-(34..37).each { |w| check.call($data_weapons[w] && WebSkill.weapon_type_of(w), "武器 #{w} 不存在或没登记类型") } if WebSkill.respond_to?(:weapon_type_of)
-(34..37).each { |w| check.call($data_weapons[w], "武器 #{w} 不存在") }
-(32..38).each do |a|
-  ar = $data_armors[a]
-  check.call(ar && ar.auto_state_id == 0 && ar.int_plus == 0, "防具 #{a} 不存在或带了模板的状态加成")
-end
-check.call($data_armors[32].kind == 1 && $data_armors[33].kind == 0 && $data_armors[34].kind == 2 && $data_armors[36].kind == 3, '防具部位不对')
-$data_weapons.compact.each { |w| check.call(w.description.bytesize <= 150, "武器 #{w.id} 描述超过两页") }
-$data_armors.compact.each { |w| check.call(w.description.bytesize <= 150, "防具 #{w.id} 描述超过两页") }
 check.call(ces[$data_items[26].common_event_id].name == '使用-武学残页', '武学残页没有接上公共事件')
-
-# 商人添货
-shop = lambda { |map, name| load_data(format('/game/Data/Map%03d.rxdata', map)).events.values.find { |e| e.name == name }.pages[0].list.select { |c| [302, 605].include?(c.code) }.map { |c| c.parameters } }
-check.call(shop.call(7, '小裁缝') == [[2, 4], [2, 32], [2, 33]], "小裁缝的货：#{shop.call(7, '小裁缝').inspect}")
-check.call(shop.call(19, '何铁手').last == [1, 37], '何铁手没有铁骨折扇')
 
 # ---------------------------------------------------------------- 抽取规则
 $game_map.setup(1)
@@ -144,48 +130,6 @@ n = $game_party.armor_number(32)
 WebMod.give_loot
 check.call($game_party.armor_number(32) == n + 1 && $game_party.weapon_number(35) == 0, '掉落应只给掷中的')
 
-# ---------------------------------------------------------------- 装备特效
-a = $game_actors[1]
-a.hp = 100
-get_npc_data(145)
-en = Game_Enemy.new(145, 0)
-hit = lambda { |dmg| en.hp = 300; en.damage = dmg; $defend_text = ''; WebGear.after_attack(a, en) }
-force = lambda { |kind, id, **o| (kind == :weapon ? WebGear.weapons : WebGear.armors)[id] = WebGear.send(kind == :weapon ? :weapons : :armors)[id].merge(o) }
-force.call(:weapon, 34, chance: 100)
-force.call(:weapon, 36, chance: 100)
-force.call(:weapon, 37, chance: 100)
-a.equip(0, 34); hit.call(40)
-check.call(en.damage == 60 && en.hp == 280 && $defend_text.include?('秋水'), "秋水：伤害 #{en.damage}，气血 #{en.hp}")
-a.equip(0, 35); a.hp = 100; hit.call(100)
-check.call(a.hp == [115, a.maxhp].min, "饮血：气血 #{a.hp}")
-a.equip(0, 36); hit.call(40)
-check.call(en.instance_variable_get(:@gear_poison) == 3, '蛇毒应让对方中毒 3 回合')
-WebGear.before_action(en, nil)
-check.call(en.hp < 300 && en.instance_variable_get(:@gear_poison) == 2, '中毒发作应失血')
-en.hp = 5; en.instance_variable_set(:@gear_poison, 1); WebGear.before_action(en, nil)
-check.call(en.hp == 4 || en.hp == 1, "中毒不致死，气血 #{en.hp}")
-en.instance_variable_set(:@gear_poison, 0)
-en.remove_state(1)
-a.equip(0, 37); hit.call(40)
-check.call(en.state?(1), '点穴应定住对方')
-a.equip(0, 0)
-
-# 防具：反震、护心、回春
-WebGear.battle_start
-a.equip(4, 36); a.hp = 100; en.hp = 300; a.damage = 50; $defend_text = ''
-WebGear.after_attack(en, a)
-check.call(en.hp == 290 && $defend_text.include?('反震'), "反震：对方气血 #{en.hp}")
-a.equip(4, 35); a.hp = 0; a.damage = 50
-WebGear.after_attack(en, a)
-check.call(a.hp == 1, '护心应保住 1 点气血')
-a.hp = 0; WebGear.after_attack(en, a)
-check.call(a.hp == 0, '护心每场只有一次')
-a.equip(4, 0)
-a.equip(2, 37); a.hp = 1
-WebGear.before_action(a, nil)
-check.call(a.hp == 1 + [a.maxhp * 3 / 100, 1].max, "回春：气血 #{a.hp}")
-a.equip(2, 0)
-
 errs.empty? ? 'ok' : errs.join("\n")
 `);
 
@@ -194,4 +138,4 @@ if (fail.length) {
   console.log(fail.join('\n'));
   process.exit(1);
 }
-console.log('江湖奇遇、装备特效：通过');
+console.log('江湖奇遇：通过');

@@ -56,6 +56,11 @@ PATCHES = [
     ('092', 'if (a>=19 and a<=22) or a==9', 'if (a>=19 and a<=22) or a==9 or a>=26', 1),
     # 对话后紧跟选项时，按自动换行后的实际行数安排选项位置（原版只数事件里的行数，长句换行后选项会压住文字）
     ('080', 'if @list[@index+1].parameters[0].size <= 4 - line_count', 'line_count = WebMod.message_rows($game_temp.message_text)\n          if @list[@index+1].parameters[0].size <= 4 - line_count', 1),
+    # 物品说明可以多于两页（装备的特效、套装说明，见 web_gear.rb Window_Item#help_pages）
+    ('050', '@help_index= @help_index==2 ? 0 : 1', '@help_index %= help_pages', 1),
+    ('050', '@help_index= @help_index==-1 ? 1 : 0', '@help_index %= help_pages', 1),
+    # 神行（装备特效）：逃跑必定成功
+    ('101', 'success = rand(100) < [40 * actors_agi / enemies_agi,80].min', 'success = WebGear.escape? || rand(100) < [40 * actors_agi / enemies_agi,80].min', 1),
     ('056', 'if text.size<=75', 'if text.bytesize<=75', 1),
     ('056', 'help_text[0]=text.slice(0,75)+" →"', 'help_text[0]=RGWeb.bslice(text,0,75)+" →"', 1),
     ('056', 'help_text[1]="← "+text.slice(75,text.size-75)', 'help_text[1]="← "+RGWeb.bslice(text,75,text.bytesize-75)', 1),

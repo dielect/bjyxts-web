@@ -72,7 +72,7 @@ module WebJianghu
   end
 
   def dice_win?
-    rand(100) < ($game_actors[1].armor_equiped?(38) ? 70 : 42)
+    rand(100) < (WebGear.value(:dice) > 0 ? 70 : 42)
   end
 
   # 赏金猎人开的价：每桩案子五百两
@@ -322,7 +322,7 @@ end
 # 9 赏金猎人：作恶的后果
 #--------------------------------------------------------------------------
 WebEncounter.add 9, '赏金猎人', where: %i[wild suburb], weight: 4, cooldown: 3,
-                 if: -> { $game_variables[159] >= 2 || $game_variables[160] < 64 } do |c|
+                 if: -> { ($game_variables[159] >= 2 || $game_variables[160] < 64) && WebGear.value(:no_bounty) == 0 } do |c|
   fight = lambda do
     c.fight(149, loot: [[:weapon, 36, 1, 25], [:armor, 35, 1, 25]],
       killed: -> { c.text '杀了官府的人，这下事情闹大了。'; c.reward wanted: 1, morality: -3 },
