@@ -1,5 +1,9 @@
 # 32×32 NPC 全身素材
 
+> **游戏当前使用**（2026-10-05 起）：[old-beggar-v4-redraw.png](old-beggar-v4-redraw.png)、[staff-vendor-v3-redraw.png](staff-vendor-v3-redraw.png)。
+> 由 `assets/reviews/crisp-redraw/` 的重绘稿自动缩成：裁掉留白后按区域采样缩到 32×32，深于灰度 110 的取黑色，被轮廓包住的部分填 #90B057，外面透明。未经手修，老叫花左侧头发有零散黑点、摊主腰部黑块偏大，可以在这两张上直接修改后用 `tools/make_npc_sprite.py` 重新生成。
+> 下面是更早的版本说明。
+
 | 人物 | 实际素材 |
 | --- | --- |
 | 老叫花 | [old-beggar.png](old-beggar.png) |

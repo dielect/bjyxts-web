@@ -6,6 +6,10 @@
 新增类格式：类名/类的作用；方法：“方法名：用途”；属性：“属性：用途”
 行数指原工程（PC V1.21 导出脚本，见 game-src/scripts）中的行号。
 
+2026-10-05 老叫花、棍棒摊主换用重绘稿
+------------------------------
+game-src/Graphics/Characters、Battlers 的 Npc_OldBeggar.png、Npc_StaffVendor.png/重新生成/改由 assets/npcs/32x32/old-beggar-v4-redraw.png、staff-vendor-v3-redraw.png 生成（由 assets/reviews/crisp-redraw 的重绘稿缩成 32×32），文件名不变。石桌棋局不变。
+
 2026-10-05 看得见的奇遇；奇遇按情境出现
 --------------------------------
 src/game/web_encounters.rb/WebEncounter/新增 show 参数：抽中“看得见的奇遇”时，先在主角前方 3～7 步、屏幕之内、走得到的空地放一个临时事件（编号 9001，原版图块外观），碰到才开始；只有碰到了才计入发生记录。回收：触发后、离开地图（无论触发没有）、走开约 40 步、离开 12 格以外。菜单、战斗回来时人物照常显示（随地图事件一起重建精灵）。没写 show 的（伏击、来访）照旧抽中即开始。

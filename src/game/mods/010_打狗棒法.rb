@@ -84,7 +84,7 @@ WebMod.enemy 144, name: '老乞丐', tile: 835, like: 31,             # 以独�
 DAGOU_FOOD_IDS = '(1..7)'                            # 烤鸡腿、包子、酥油茶、翡翠豆腐、猪肉、糖葫芦、白玉豆腐
 
 WebMod.edit 15 do |m|
-  # 外观：assets/npcs/32x32/old-beggar-v3-hero.png，用 tools/make_npc_sprite.py 生成 Npc_OldBeggar
+  # 外观：assets/npcs/32x32/old-beggar-v4-redraw.png（由 assets/reviews/crisp-redraw 的重绘稿缩成），用 tools/make_npc_sprite.py 生成 Npc_OldBeggar
   m.npc 13, 13, sprite: 'Npc_OldBeggar', fight: { enemy: 144, loot: [[:item, 23]], morality: [-10, -5], switch: 105 },
         look: { age: 6, level: 47, attack: 1, items: '破衣烂衫、竹棒',
                 text: '一个衣衫褴褛的老叫化，倚着墙根晒太阳。手里那根竹棒被磨得油光发亮，像是用了几十年。他偶尔抬眼看人，目光却清亮得不像个乞丐。' } do |c|
@@ -153,7 +153,7 @@ WebMod.edit 15 do |m|
   end
 
   # 每次交谈随机说一句（talk: [...] 是一次对话里连着说的几页，这里不用）
-  # 外观：assets/npcs/32x32/staff-vendor-v2.png，用 tools/make_npc_sprite.py 生成 Npc_StaffVendor
+  # 外观：assets/npcs/32x32/staff-vendor-v3-redraw.png（由 assets/reviews/crisp-redraw 的重绘稿缩成），用 tools/make_npc_sprite.py 生成 Npc_StaffVendor
   m.npc 20, 18, name: '棍棒摊主', tile: 872, sprite: 'Npc_StaffVendor',
         look: { age: 4, level: 8, attack: 3, items: '布衣', text: '一个膀大腰圆的汉子，摊子上横七竖八堆着各色棍棒。' },
         shop: [[:weapon, 63], [:weapon, 31], [:weapon, 32], [:weapon, 64]] do |c|   # 枣木棍、镔铁齐眉棍见 050
