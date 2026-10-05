@@ -30,9 +30,20 @@ FISH_ITEM = { like: 17, common_event_id: 0, occasion: 3 }       # 以鲤鱼为�
   [36, '墨鱼',   :sea,  [1, 2],       1, [8, 32],  70,  '一碰就喷墨的墨鱼'],
   [37, '石斑鱼', :sea,  [2],          2, [24, 96], 200, '浑身斑点的石斑鱼，秋天藏在礁石边'],
   [38, '红鲷',   :sea,  [3, 0],       2, [16, 48], 180, '通红的鲷鱼，冬春时节才有'],
+  # ---- 商家堡荷塘、西郊小溪、大雪山冰溪（冰溪只有冬天能钓）
+  [42, '泥鳅',   :lotus,  [0, 1, 2, 3], 0, [1, 3],    15,   '滑溜溜的泥鳅，钻在荷塘的淤泥里'],
+  [43, '黄鳝',   :lotus,  [1, 2],       1, [6, 24],   60,   '黄澄澄的鳝鱼，夏秋最肥'],
+  [44, '乌龟',   :lotus,  [1, 2],       2, [16, 64],  180,  '一只慢吞吞的老乌龟，壳上长着青苔。可以放生'],
+  [45, '锦鲤',   :lotus,  [0, 1, 2, 3], 3, [16, 64],  1000, '红白相间的锦鲤，商家堡主当年放进塘里的。可以放生'],
+  [46, '白条',   :stream, [0, 1, 2, 3], 0, [1, 4],    10,   '细长的小白条，溪水里成群结队'],
+  [47, '马口鱼', :stream, [0, 1, 2],    0, [2, 8],    20,   '嘴巴大大的马口鱼，咬钩又急又狠'],
+  [48, '黄颡鱼', :stream, [1, 2, 3],    1, [4, 16],   60,   '会“嘎嘎”叫的黄颡鱼，背上有刺'],
+  [49, '娃娃鱼', :stream, [1, 2],       3, [32, 160], 1200, '叫起来像婴儿哭的娃娃鱼，溪源深处才有'],
+  [50, '细鳞鱼', :ice,    [3],          1, [8, 32],   120,  '冰溪里的细鳞鱼，肉质紧实'],
+  [51, '哲罗鲑', :ice,    [3],          3, [64, 320], 1500, '雪山大红鱼，冰溪里的霸王，能长到一人多长'],
 ].each do |id, name, water, seasons, rarity, weight, price, text|
-  # 稀罕鱼可以吃（公共事件 30～33 在 120_渔隐.rb）：鳜鱼、石斑鱼、红鲷补气血，金鲤长内力
-  eat = { 32 => 30, 37 => 31, 38 => 32, 33 => 33 }[id]
+  # 稀罕鱼可以吃、可以放生（公共事件 30～36 在 120_渔隐.rb）：鳜鱼、石斑鱼、红鲷补气血，金鲤、哲罗鲑长内力；乌龟、锦鲤放生
+  eat = { 32 => 30, 37 => 31, 38 => 32, 33 => 33, 44 => 34, 45 => 35, 51 => 36 }[id]
   attrs = eat ? FISH_ITEM.merge(common_event_id: eat, occasion: 2, consumable: true) : FISH_ITEM
   WebMod.item id, **attrs, name: name, price: price, description: text
   WebLife.fish id, name: name, water: water, seasons: seasons, rarity: rarity, weight: weight, price: price
@@ -69,11 +80,19 @@ WebLife.rod_effect 31                                  # 原版钓竿：没有�
 module WebLife
   class << self
     # 下竿：用不用香饵，咬不咬钩（变量 9：1 咬钩 0 没咬）
+    # 下竿：变量 9 = 1 咬钩 0 没咬 5 这一季这里没鱼。先抽小插曲（下雨、海鸥等会影响这一竿的咬钩）
     def start_cast(water, bait)
       @water = water
+      @gulls = @lotus_mood = false
+      @interlude = nil
+      if candidates(water).empty?
+        $game_variables[9] = 5
+        return
+      end
       @bait = bait && $game_party.item_number(39) > 0
       $game_party.lose_item(39, 1) if @bait
-      $game_variables[9] = rand(100) < bite_chance(@bait) ? 1 : 0
+      roll_interlude(water)
+      $game_variables[9] = @interlude != :tangle && rand(100) < bite_chance(@bait) ? 1 : 0
     end
 
     # 提竿或再等等（变量 9：2 钓上来鱼 3 钓上来别的东西 4 钓上来一个水贼 / 海盗 0 跑了）
@@ -95,8 +114,9 @@ module WebLife
 
     def land_and_text
       f = @last or return '……'
+      stolen = bird_steal?
       text = landed_text
-      $game_party.gain_item(f[:id], 1)
+      $game_party.gain_item(f[:id], 1) unless stolen
       text
     end
 
@@ -117,8 +137,25 @@ fishing = lambda do |c, water|
       end.else do
         c.script "WebLife.start_cast(#{water.inspect}, false)"
       end
-      c.text water == :pond ? '你甩出钓线，往塘边一蹲，盯着浮子。' : '你把钓线甩进海里，海浪一下一下地拍着礁石。'
+      c.text({ pond: '你甩出钓线，往塘边一蹲，盯着浮子。', sea: '你把钓线甩进海里，海浪一下一下地拍着礁石。',
+               lotus: '你拨开荷叶，把钓线轻轻放进荷塘。', stream: '你把钓线甩进溪水，浮子顺着水流一漂一漂。',
+               ice: '你在冰面上凿了个窟窿，把钓线垂了下去，寒气直往骨头里钻。' }[water])
       c.script "a = $game_actors[1]\na.hp -= 10 if a.hp > 10\nWebLife.pass_time(WebLife.rod_fx(:fast) > 0 ? 1 : 2)"
+      c.if_script('WebLife.interlude?') do              # 钓鱼时的小插曲
+        c.say 'WebLife.interlude_text'
+        c.if_script('WebLife.interlude_cat?') do
+          c.choices(%w[分它一条鱼 赶走它]) do |i|
+            if i == 0
+              c.say 'WebLife.feed_cat'
+            else
+              c.text '你挥挥手，野猫不情不愿地走开了。'
+            end
+          end
+        end
+      end
+      c.if_variable(9, 5) do
+        c.say 'WebLife.off_season_text'
+      end
       c.if_variable(9, 1) do
         c.text '浮子猛地一沉！'
         c.choices(%w[提竿 再等等]) do |i|
@@ -152,17 +189,32 @@ fishing = lambda do |c, water|
           end
         end
       end.else do
-        c.say 'WebLife.no_bite_text'
+        c.if_script('$game_variables[9] == 0 && WebLife.interlude != :tangle') { c.say 'WebLife.no_bite_text' }
       end
     end
   end.else do
-    c.text water == :pond ? '你看着池塘里的鱼，摸了摸肚皮：要是现在有个钓竿该多好啊！' : '海里的鱼一群一群的。要是有根钓竿就好了。'
+    c.text(water == :sea ? '海里的鱼一群一群的。要是有根钓竿就好了。' : '你看着水里的鱼，摸了摸肚皮：要是现在有个钓竿该多好啊！')
   end
 end
 
 WebMod.edit 13 do |m|                               # 南郊鱼塘：原版的两个钓点
   m.rewrite(8) { |c| fishing.call(c, :pond) }
   m.rewrite(9) { |c| fishing.call(c, :pond) }
+end
+
+WebMod.edit 29 do |m|                               # 商家堡荷塘：左下的水塘，站在上方或左边
+  m.event 4, 10, name: '钓位', tile: 712 do |c| fishing.call(c, :lotus) end
+  m.event 4, 11, name: '钓位', tile: 712 do |c| fishing.call(c, :lotus) end
+end
+
+WebMod.edit 12 do |m|                               # 平安镇西郊篱笆里的小溪：站在溪上方往下（篱笆外那段走不到）
+  m.event 3, 8, name: '钓位', tile: 712 do |c| fishing.call(c, :stream) end
+  m.event 5, 8, name: '钓位', tile: 712 do |c| fishing.call(c, :stream) end
+end
+
+WebMod.edit 42 do |m|                               # 大雪山寨的冰溪：站在溪上方往下（只有冬天能钓）
+  m.event 9, 10, name: '钓位', tile: 712 do |c| fishing.call(c, :ice) end
+  m.event 11, 10, name: '钓位', tile: 712 do |c| fishing.call(c, :ice) end
 end
 
 WebMod.edit 37 do |m|                               # 冰火岛渡口：岸边栏杆上挂着钓线的两处，站在下面按确定
@@ -194,7 +246,7 @@ module WebLife
 
     def jose_greeting
       case jose_tier
-      when 0 then '你也喜欢钓鱼吗？南郊有个鱼塘，冰火岛渡口还能钓海鱼呢！'
+      when 0 then '你也喜欢钓鱼吗？南郊有个鱼塘，冰火岛渡口能钓海鱼，听说西郊的小溪、商家堡的荷塘也有鱼！'
       when 1 then "#{jose_title}来啦！最近又钓着什么了？"
       when 2 then "哟，#{jose_title}！快坐，正想跟你聊聊鱼呢。"
       else "#{jose_title}大驾光临！今儿个想去哪儿下竿？"
@@ -206,8 +258,7 @@ module WebLife
       todo = FISH.values.select { |f| f[:seasons].include?(season) && f[:seasons].size < 4 && !caught?(f[:id]) }
       return "这#{season_name}天啊，鱼塘里鲫鱼鲤鱼最多。想钓稀罕的，就得有耐心，浮子沉了别急着提竿。" if todo.empty?
       f = todo.sample
-      where = f[:water] == :pond ? '南郊鱼塘' : '冰火岛渡口'
-      "#{season_name}天正是#{f[:name]}的时候，去#{where}碰碰运气吧！"
+      "#{season_name}天正是#{f[:name]}的时候，去#{water_name(f[:water])}碰碰运气吧！"
     end
 
     # 给荷西看鱼：每种他没见过的鱼加一点交情，付一点“看鱼钱”

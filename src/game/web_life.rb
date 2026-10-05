@@ -26,8 +26,11 @@ module WebLife
   VERSION = 1
   SEASONS = %w[春 夏 秋 冬]
 
+  # ---- 水域
+  WATERS = { pond: '南郊鱼塘', sea: '冰火岛渡口', lotus: '商家堡荷塘', stream: '西郊小溪', ice: '大雪山冰溪' }
+
   # ---- 鱼：物品编号 => { name:, water:, seasons:, rarity:, weight: [最小两, 最大两], price: }
-  #   water   :pond 南郊鱼塘（淡水） :sea 冰火岛渡口（海）
+  #   water   水域，见 WATERS
   #   rarity  0 常见 1 少见 2 稀有 3 难得一见
   FISH = {}
   RARITY = [60, 25, 10, 2]                       # 各档的基础权重
@@ -43,10 +46,23 @@ module WebLife
 
   # 钓出来的不是鱼：[种类, 权重, 最低渔技]。种类见 junk_text
   JUNK = {
-    pond: [[:shoe, 30, 1], [:sword, 15, 1], [:page, 15, 2], [:bottle, 10, 2], [:purse, 20, 1], [:bandit, 10, 3]],
-    sea:  [[:shoe, 20, 1], [:page, 10, 2], [:bottle, 20, 1], [:chest, 20, 2], [:bandit, 10, 3]],
+    pond:   [[:shoe, 30, 1], [:sword, 15, 1], [:page, 15, 2], [:bottle, 10, 2], [:purse, 20, 1], [:bandit, 10, 3]],
+    sea:    [[:shoe, 20, 1], [:page, 10, 2], [:bottle, 20, 1], [:chest, 20, 2], [:bandit, 10, 3]],
+    lotus:  [[:shoe, 20, 1], [:purse, 30, 1], [:page, 15, 2], [:bandit, 10, 3]],
+    stream: [[:shoe, 25, 1], [:sword, 20, 1], [:page, 15, 2], [:purse, 15, 1]],
+    ice:    [[:page, 20, 1], [:chest, 15, 2]],
   }
-  JUNK_CHANCE = { pond: 12, sea: 15 }            # 提竿钓上来东西时，不是鱼的几率（%）
+  JUNK_CHANCE = { pond: 12, sea: 15, lotus: 12, stream: 10, ice: 8 }   # 提竿钓上来东西时，不是鱼的几率（%）
+  WATER_BANDIT = { pond: 160, lotus: 160, sea: 161 }                    # 钓上来的人：水贼 / 海盗
+
+  # ---- 钓鱼时的小插曲：[种类, 权重, 只在这些水域（nil 为都有）, 只在这些季节（nil 为都有）]
+  INTERLUDES = [
+    [:rain,    10, nil, [0, 1, 2]], [:tangle, 10, nil, nil], [:chat, 10, nil, nil], [:cat, 8, [:pond, :lotus, :stream], nil],
+    [:drift,    6, [:stream, :pond], nil], [:gulls, 10, [:sea], nil], [:crack, 12, [:ice], nil],
+    [:lotus,   10, [:lotus], [1]],
+  ]
+  INTERLUDE_CHANCE = 20                          # 每一竿遇到小插曲的几率（%）
+  BIRD_CHANCE = 6                                # 钓上来的鱼被水鸟叼走的几率（%）
 
   # 鱼情：钓上一条掉多少（按稀有程度），每过一天恢复多少。连着钓十来条就“钓怕了”，睡一觉（三个月）全恢复
   STOCK_COST = [8, 10, 14, 20]
@@ -174,7 +190,8 @@ module WebLife
 
     def bite_chance(bait)
       sea = rod_fx(:sea) * (at_sea? ? 1 : -1)
-      base = [45 + skill_level * 3 + (bait ? 10 : 0) + rod_fx(:bite) + sea, 90].min
+      mood = (raining? ? 20 : 0) + (@gulls ? 25 : 0) + (@lotus_mood ? 10 : 0)
+      base = [45 + skill_level * 3 + (bait ? 10 : 0) + rod_fx(:bite) + sea + mood, 95].min
       water = @water || :pond
       (base * (0.25 + 0.75 * stock(water) / 100.0)).to_i      # 鱼情差时咬钩少
     end
@@ -193,17 +210,104 @@ module WebLife
       data[:stock][water] = [[v - n, 0].max, day]
     end
 
+    NO_BITE = { pond: '过了很久也没有鱼上钩，你一收钓竿，到树荫下歇着去了。', sea: '潮水涨了又退，一条鱼也没咬钩。',
+                lotus: '荷叶下静悄悄的，浮子一动不动。', stream: '溪水哗哗地流，鱼钩上的饵早被冲没了。',
+                ice: '冰窟窿里的水慢慢结了一层薄冰，一条鱼也没来。' }
+
     def no_bite_text
-      if stock(@water || :pond) < 30
-        @water == :sea ? '这一片海里的鱼都被你钓怕了，半天没有动静。换个地方，或者过些日子再来吧。' :
-                         '塘里的鱼都被你钓怕了，半天没有动静。换个地方，或者过些日子再来吧。'
-      else
-        @water == :sea ? '潮水涨了又退，一条鱼也没咬钩。' : '过了很久也没有鱼上钩，你一收钓竿，到树荫下歇着去了。'
-      end
+      w = @water || :pond
+      return "#{water_name(w)}的鱼都被你钓怕了，半天没有动静。换个地方，或者过些日子再来吧。" if stock(w) < 30
+      NO_BITE[w]
     end
 
     def candidates(water)
       FISH.values.select { |f| f[:water] == water && f[:seasons].include?(season) }
+    end
+
+    def water_name(water)
+      WATERS[water]
+    end
+
+    # ---- 小插曲（下竿时抽，影响这一竿；下雨管一天）
+    def raining?
+      (@rain_until || -1) >= ticks
+    end
+
+    def roll_interlude(water)
+      @interlude = nil
+      return nil if rand(100) >= INTERLUDE_CHANCE
+      pool = INTERLUDES.select { |_, _, ws, ss| (ws.nil? || ws.include?(water)) && (ss.nil? || ss.include?(season)) }
+      pool = pool.reject { |k, *| k == :rain && raining? }
+      r = rand(pool.sum { |_, w, *| w })
+      pool.each do |k, w, *|
+        next unless (r -= w) < 0
+        @interlude = k
+        @rain_until = ticks + 8 if k == :rain        # 下一天都算下雨
+        @gulls = k == :gulls
+        @lotus_mood = k == :lotus
+        return k
+      end
+      nil
+    end
+
+    def interlude?
+      !@interlude.nil?
+    end
+
+    def interlude
+      @interlude
+    end
+
+    def interlude_cat?
+      @interlude == :cat
+    end
+
+    # 小插曲的文字和效果（事件里 c.say 调用一次）
+    def interlude_text
+      case @interlude
+      when :rain
+        '天上飘起了小雨，水面泛起一圈圈涟漪——下雨天，鱼最爱咬钩。'
+      when :tangle
+        pass_time(2)
+        '钓线缠在水草上，费了半天劲才解开，日头都偏西了。'
+      when :chat
+        if rand(2) == 0 && respond_to?(:bottle_text)
+          t = bottle_text
+          t.start_with?('纸条') ? "一个过路的樵夫在你旁边坐下歇脚，闲聊了几句：#{t.sub(/\A纸条上歪歪扭扭写着：/, '')}" : "一个过路的樵夫在你旁边坐下歇脚，看了会儿你钓鱼，又走了。"
+        else
+          "一个过路的老汉蹲下来看你钓鱼：“#{respond_to?(:jose_tip) ? jose_tip : '这季节的鱼可不好钓啊。'}”"
+        end
+      when :drift
+        g = 50 + rand(150)
+        $game_party.gain_gold(g)
+        "上游漂下来一只木盆，你伸竿把它勾到岸边，盆底竟压着#{g}两碎银子。"
+      when :gulls
+        '一群海鸥在不远处的海面上盘旋俯冲——那下面准有鱼群！'
+      when :crack
+        a = $game_actors[1]
+        lost = [a.maxhp / 10, a.hp - 1].min
+        a.hp -= lost if lost > 0
+        '脚下的冰面“咔嚓”一声裂开一道缝，你一个趔趄，半条腿浸进了冰水里，冻得直哆嗦。'
+      when :lotus
+        '一阵风吹过，满塘荷花轻轻摇曳，清香扑鼻。你心里一静，浮子也看得格外清楚。'
+      when :cat
+        '一只瘦巴巴的野猫蹲在你脚边，眼巴巴地盯着你的鱼篓。'
+      else ''
+      end
+    end
+
+    # 喂猫：给一条最便宜的鱼，道德 +1
+    def feed_cat
+      id = FISH.values.select { |f| $game_party.item_number(f[:id]) > 0 }.min_by { |f| f[:price] }&.dig(:id)
+      return '你的鱼篓里空空的，野猫失望地走了。' unless id
+      $game_party.lose_item(id, 1)
+      WebMod.gain_morality(1)
+      "你丢给它一条#{FISH[id][:name]}。野猫叼着鱼，冲你“喵”了一声，钻进草丛不见了。"
+    end
+
+    # 这一季这片水里没有鱼（冰溪只有冬天能钓）
+    def off_season_text
+      @water == :ice ? '溪水又急又冷，鱼都躲在深处。等冬天冰封了，凿个冰窟窿才好钓。' : '这个时节，这里好像钓不到什么鱼。'
     end
 
     # 抽一条鱼。bait 用了香饵；patient 浮子动了以后“再等等”（稀有的更多，但可能跑掉，由事件判定）
@@ -250,9 +354,15 @@ module WebLife
       @last = f
     end
 
+    # 钓上来了却被水鸟叼走（只在 land_and_text 里判定一次）
+    def bird_steal?
+      @bird = rand(100) < BIRD_CHANCE
+    end
+
     def landed_text
       f = @last or return ''
       _, wt = land(f)
+      return "钓上来一条#{f[:name]}——一只水鸟俯冲下来，一口叼走了！你只来得及看清它足有#{weight_text(wt)}。" if @bird
       big = data[:fish][f[:id]][1] == wt && data[:fish][f[:id]][0] > 1 ? '（比以前钓到的都大！）' : ''
       exp = CATCH_EXP[f[:rarity]] > 0 ? "（实战经验+#{CATCH_EXP[f[:rarity]]}）" : ''
       @last_text = "钓到了一条#{f[:name]}，足有#{weight_text(wt)}！#{big}#{exp}#{practice_note}"
@@ -359,6 +469,8 @@ end
 #--------------------------------------------------------------------------
 class Scene_FishBook
   def main
+    @page = 0
+    @waters = WebLife::WATERS.keys
     @window = Window_Base.new(0, 0, 640, 480)
     @window.contents = Bitmap.new(608, 448)
     refresh
@@ -367,6 +479,11 @@ class Scene_FishBook
       Graphics.update
       Input.update
       break if Input.trigger?(Input::B) || Input.trigger?(Input::C)
+      if Input.trigger?(Input::RIGHT) || Input.trigger?(Input::LEFT)
+        @page = (@page + (Input.trigger?(Input::RIGHT) ? 1 : -1)) % @waters.size
+        $game_system.se_play($data_system.cursor_se)
+        refresh
+      end
     end
     $game_system.se_play($data_system.cancel_se)
     $scene = Scene_Map.new
@@ -374,33 +491,36 @@ class Scene_FishBook
     @window.dispose
   end
 
+  # 一页一处水域：鱼名、季节、稀有程度、条数、最大一条；没钓到的显示“？？？”
   def refresh
     c = @window.contents
     c.clear
     c.font.color.set(0, 0, 0)
-    c.font.size = 22
     l = WebLife
+    water = @waters[@page]
+    c.font.size = 22
     c.draw_text(0, 0, 608, 28, "鱼谱　#{l.title || '新手'}（渔技#{l.skill_level}级）　已钓到#{l.species_caught}/#{l.data_size_fish}种　当前#{l.season_name}季", 1)
+    c.font.size = 20
+    c.draw_text(0, 40, 608, 28, "← #{l.water_name(water)}（#{@page + 1}/#{@waters.size}）　鱼情#{l.stock(water)} →", 1)
     c.font.size = 18
-    l::FISH.values.sort_by { |f| [f[:water] == :pond ? 0 : 1, f[:rarity], f[:id]] }.each_with_index do |f, i|
-      y = 36 + i * 26
+    l::FISH.values.select { |f| f[:water] == water }.sort_by { |f| [f[:rarity], f[:id]] }.each_with_index do |f, i|
+      y = 84 + i * 30
       rec = l.data[:fish][f[:id]]
+      seasons = f[:seasons].size == 4 ? '四季' : f[:seasons].map { |s| l::SEASONS[s] }.join
       if rec && rec[0] > 0
-        where = f[:water] == :pond ? '南郊鱼塘' : '冰火岛渡口'
-        seasons = f[:seasons].size == 4 ? '四季' : f[:seasons].map { |s| l::SEASONS[s] }.join
-        c.draw_text(8, y, 120, 26, f[:name])
-        c.draw_text(128, y, 120, 26, where)
-        c.draw_text(248, y, 80, 26, seasons)
-        c.draw_text(328, y, 100, 26, l::RARITY_NAME[f[:rarity]])
-        c.draw_text(428, y, 80, 26, "#{rec[0]}条")
-        c.draw_text(508, y, 100, 26, "最大#{l.weight_text(rec[1])}")
+        c.draw_text(24, y, 140, 28, f[:name])
+        c.draw_text(164, y, 100, 28, seasons)
+        c.draw_text(264, y, 120, 28, l::RARITY_NAME[f[:rarity]])
+        c.draw_text(384, y, 80, 28, "#{rec[0]}条")
+        c.draw_text(464, y, 140, 28, "最大#{l.weight_text(rec[1])}")
       else
-        c.draw_text(8, y, 120, 26, '？？？')
-        c.draw_text(128, y, 400, 26, f[:water] == :pond ? '（淡水）' : '（海里）')
+        c.draw_text(24, y, 140, 28, '？？？')
+        c.draw_text(164, y, 100, 28, seasons)
+        c.draw_text(264, y, 120, 28, l::RARITY_NAME[f[:rarity]])
       end
     end
     c.font.size = 16
-    c.draw_text(0, 424, 608, 24, '按确定或取消返回', 1)
+    c.draw_text(0, 424, 608, 24, '左右键翻页，确定或取消返回', 1)
   end
 end
 

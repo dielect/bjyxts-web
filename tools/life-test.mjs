@@ -26,13 +26,14 @@ $game_variables[157] = 15; $game_variables[158] = 0
 check.call(L.day == 360 && L.season == 0, '满一年是第 360 天')
 
 # ---------------------------------------------------------------- 鱼的数据
-check.call(L::FISH.size == 12, "鱼的种类：#{L::FISH.size}")
+check.call(L::FISH.size == 22 && L::WATERS.size == 5, "鱼的种类：#{L::FISH.size}")
 L::FISH.each_key { |id| check.call($data_items[id] && $data_items[id].name == L::FISH[id][:name], "鱼 #{id} 没有对应物品") }
-(28..38).each { |id| check.call($data_items[id].common_event_id != 18, "新鱼 #{id} 不能用鲤鱼的公共事件（它写死扣鲤鱼）") }
+((28..38).to_a + (42..51).to_a).each { |id| check.call($data_items[id].common_event_id != 18, "新鱼 #{id} 不能用鲤鱼的公共事件（它写死扣鲤鱼）") }
 check.call([32, 33, 37, 38].all? { |id| $data_items[id].common_event_id.between?(30, 33) } && $data_items[28].common_event_id == 0, '稀罕鱼能吃（各有自己的公共事件），普通鱼不能')
-[:pond, :sea].each do |w|
+[:pond, :sea, :lotus, :stream].each do |w|
   4.times { |s| $game_variables[158] = s * 750; check.call(!L.candidates(w).empty?, "#{w} 在#{L.season_name}季没有鱼") }
 end
+4.times { |s| $game_variables[158] = s * 750; check.call(L.candidates(:ice).empty? == (s != 3), "冰溪只有冬天有鱼（#{L.season_name}）") }
 
 # ---------------------------------------------------------------- 钓竿
 check.call(L.rod.nil?, '没装钓竿')
@@ -73,7 +74,7 @@ end
 check.call(landed > 60, "两百竿钓上 #{landed} 条")
 check.call(L.species_caught >= 2 && L.skill > 0, "鱼谱 #{L.species_caught} 种，熟练度 #{L.skill}")
 check.call(L.data[:fish].values.all? { |n, w| n > 0 && w > 0 }, '鱼谱记了条数和最大重量')
-check.call(L::FISH.keys.sum { |id| $game_party.item_number(id) } >= landed, '钓上来的鱼进了背包')
+check.call(L::FISH.keys.sum { |id| $game_party.item_number(id) } >= landed * 0.8, '钓上来的鱼大都进了背包（少数被水鸟叼走）')
 # 香饵：用一个少一个
 $game_party.gain_item(39, 2)
 L.start_cast(:pond, true)
@@ -106,9 +107,9 @@ L.show_jose
 texts = []; texts << L.jose_gift_text while L.jose_gift?
 check.call(texts.size == 2 && L.flag?(:cook_intro), "交情 0→5：应依次给介绍厨师和香饵，实际 #{texts.size} 档")
 L.data[:clients][:jose] = saved
-[36, 37, 38, 17].each { |id| $game_party.gain_item(id, 1) }
+[36, 37, 38, 17, *(42..51)].each { |id| $game_party.gain_item(id, 1) }
 L.show_jose
-check.call(L.dragon_rod_due?, '十二种都看过，该送龙须钓竿')
+check.call(L.dragon_rod_due?, '所有鱼都看过，该送龙须钓竿')
 L.set_flag(:dragon_rod)
 check.call(!L.dragon_rod_due?, '龙须钓竿只送一次')
 
@@ -171,6 +172,32 @@ $game_variables[158] += 83                                    # 过十天
 check.call(L.stock(:pond).between?(40, 50), "过十天恢复：#{L.stock(:pond)}")
 $game_variables[158] += 750                                   # 睡一觉
 check.call(L.stock(:pond) == 100, '睡一觉全恢复')
+
+# ---------------------------------------------------------------- 小插曲
+fresh.call; a.equip(7, 31)
+L.instance_variable_set(:@water, :pond)
+srand(3)
+seen = Hash.new(0)
+600.times { L.data[:stock] = {}; L.start_cast(:pond, false); seen[L.interlude] += 1 if L.interlude }
+check.call(seen.values.sum.between?(80, 160), "六百竿里小插曲 #{seen.values.sum} 次：#{seen.inspect}")
+check.call(!seen.key?(:gulls) && !seen.key?(:crack), '鱼塘没有海鸥、冰面')
+L.data[:stock] = {}
+L.instance_variable_set(:@interlude, :tangle)
+# 缠线：这一竿一定没鱼
+100.times { L.data[:stock] = {}; L.start_cast(:pond, false); check.call($game_variables[9] == 0, '缠住水草时不会咬钩') if L.interlude == :tangle }
+# 下雨：咬钩更多，管一天
+L.instance_variable_set(:@rain_until, -1); dry = L.bite_chance(false)
+L.instance_variable_set(:@rain_until, L.ticks + 8); wet = L.bite_chance(false)
+check.call(wet > dry, "下雨咬钩 #{dry} → #{wet}")
+$game_variables[158] += 9
+check.call(L.bite_chance(false) == dry, '过了一天雨停了')
+# 喂猫
+$game_party.gain_item(46, 1); $game_party.gain_item(45, 1); m0 = $game_variables[160]; k0 = $game_party.item_number(45); w0 = $game_party.item_number(46)
+t = L.feed_cat
+check.call(t.include?('白条') && $game_party.item_number(45) == k0 && $game_party.item_number(46) == w0 - 1 && $game_variables[160] == [m0 + 1, 255].min, "喂猫给最便宜的鱼：#{t}")
+# 冰溪不在冬天
+$game_variables[158] = 0; L.start_cast(:ice, false)
+check.call($game_variables[9] == 5 && L.off_season_text.include?('冬天'), '冰溪春天钓不了')
 
 # ---------------------------------------------------------------- 渔隐
 fresh.call
