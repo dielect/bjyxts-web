@@ -9,32 +9,45 @@
 #  敌人编号：采花大盗 27  黑衣大盗 36  流氓头 122  流氓 121  老乞丐 144
 #==============================================================================
 
+# 正邪分支（100_正邪分支.rb）的后果：成了血衣楼主或通缉很重时镇上的人怕你，成了天下名捕时敬你，
+# 都不是时照常说话
+module WebTown
+  def self.react(c, feared:, hero:, &normal)
+    c.if_script('WebRoute.feared?') { c.text feared }.else do
+      c.if_script('WebRoute.hero?') { c.text hero }.else(&normal)
+    end
+  end
+end
+
 #--------------------------------------------------------------------------
 # 平安镇东：民团团丁
 #--------------------------------------------------------------------------
 WebMod.edit 5 do |m|
   m.talk '民团团丁' do |c|
-    c.if_good do
-      c.random(3) do |i|
-        case i
-        when 0
-          c.text '平安镇平安镇，有我们民团在，保管平平安安。'
-        when 1
-          c.if_dead(122) do
-            c.text '西郊的流氓头被人收拾了，那帮小喽啰总算消停了些。'
-          end.else do
-            c.text '西郊那帮流氓又在闹事。流氓头不出面，底下的小喽啰谁也管不住。'
-          end
-        when 2
-          c.if_dead(27) do
-            c.text '听说北郊的采花大盗栽了，镇上的大姑娘们总算敢出门了。'
-          end.else do
-            c.text '北郊有个采花大盗，轻功好得很，官府通缉了好几年都没抓着。'
+    WebTown.react(c, feared: '（团丁一看见你，脸都白了，握着长枪的手直哆嗦。）',
+                     hero: '天下名捕回平安镇啦！有您在，咱们民团都能睡个好觉。') do
+      c.if_good do
+        c.random(3) do |i|
+          case i
+          when 0
+            c.text '平安镇平安镇，有我们民团在，保管平平安安。'
+          when 1
+            c.if_dead(122) do
+              c.text '西郊的流氓头被人收拾了，那帮小喽啰总算消停了些。'
+            end.else do
+              c.text '西郊那帮流氓又在闹事。流氓头不出面，底下的小喽啰谁也管不住。'
+            end
+          when 2
+            c.if_dead(27) do
+              c.text '听说北郊的采花大盗栽了，镇上的大姑娘们总算敢出门了。'
+            end.else do
+              c.text '北郊有个采花大盗，轻功好得很，官府通缉了好几年都没抓着。'
+            end
           end
         end
+      end.else do
+        c.text '站住！看你贼眉鼠眼的，最近镇上丢鸡丢狗，是不是你干的？'
       end
-    end.else do
-      c.text '站住！看你贼眉鼠眼的，最近镇上丢鸡丢狗，是不是你干的？'
     end
   end
 end
@@ -44,21 +57,24 @@ end
 #--------------------------------------------------------------------------
 WebMod.edit 10 do |m|
   m.talk '寻捕' do |c|
-    c.random(3) do |i|
-      case i
-      when 0
-        c.text '破案讲究个耐心。采花大盗、黑衣大盗……案卷都快堆成山了。'
-      when 1
-        c.if_dead(36) do
-          c.text '黑衣大盗的面罩底下到底是谁，到死也没人知道。'
-        end.else do
-          c.text '那黑衣大盗倒也怪，劫的都是为富不仁的人家，乡亲们反倒替他说话。'
-        end
-      when 2
-        c.if_good do
-          c.text '捕快那边常要人帮忙捉拿恶人，你若有空，不妨去问问。'
-        end.else do
-          c.text '你最近干的那些好事，本官都记在本子上了。'
+    WebTown.react(c, feared: '寻捕盯着你，手一直按在刀柄上：“血衣楼的人……本官迟早拿你归案。”',
+                     hero: '周铁总捕来信，把你夸上了天。案卷上那些血衣案，总算都结了。') do
+      c.random(3) do |i|
+        case i
+        when 0
+          c.text '破案讲究个耐心。采花大盗、黑衣大盗……案卷都快堆成山了。'
+        when 1
+          c.if_dead(36) do
+            c.text '黑衣大盗的面罩底下到底是谁，到死也没人知道。'
+          end.else do
+            c.text '那黑衣大盗倒也怪，劫的都是为富不仁的人家，乡亲们反倒替他说话。'
+          end
+        when 2
+          c.if_good do
+            c.text '捕快那边常要人帮忙捉拿恶人，你若有空，不妨去问问。'
+          end.else do
+            c.text '你最近干的那些好事，本官都记在本子上了。'
+          end
         end
       end
     end
@@ -141,12 +157,15 @@ end
 #--------------------------------------------------------------------------
 WebMod.edit 15 do |m|
   m.talk '官兵' do |c|
-    c.if_good do
-      c.one_of '站岗站得腿都麻了。',
-               '上头催着抓采花大盗，可咱们守城门的，哪追得上他。',
-               '往北是平安镇北郊，再往北就出了镇子，路上不太平，小心为上。'
-    end.else do
-      c.text '又是你？老实点，别在城门口晃悠。'
+    WebTown.react(c, feared: '（官兵假装没看见你，把脸转向了一边。）',
+                     hero: '名捕大人！小的给您站岗！') do
+      c.if_good do
+        c.one_of '站岗站得腿都麻了。',
+                 '上头催着抓采花大盗，可咱们守城门的，哪追得上他。',
+                 '往北是平安镇北郊，再往北就出了镇子，路上不太平，小心为上。'
+      end.else do
+        c.text '又是你？老实点，别在城门口晃悠。'
+      end
     end
   end
 end

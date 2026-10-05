@@ -11,14 +11,14 @@
 #    6 骰子摊     镇上    押大押小；眼尖的能看出庄家出千（揭穿 / 不动声色）
 #    7 恶霸欺人   各处    （正派）路见不平
 #    8 落单行商   野外    （邪派）拦路打劫
-#    9 赏金猎人   野外郊外 追杀数 ≥ 2 或道德很低时，官府的人找上门来
+#    9 赏金猎人   野外郊外 通缉值 ≥ 2 或道德很低时，官府的人找上门来（正邪分支邪道线被六扇门总捕追捕期间不出现）
 #   10 江湖传闻   镇上郊外 茶客闲聊：两处藏宝、珍珑棋局、老乞丐的线索
 #
 #  编号：敌人 145～149；物品 25、26；公共事件 27（使用武学残页）
 #        变量 162 打败山贼头目的次数  163 行侠次数（恶霸、山贼，正派时）
 #        开关 107 救了温青  108 搜了温青  109 老汉送过鞋  110/111 西北藏宝 听说/已取
 #             112/113 五指山大石 听说/已取  114 听说珍珑棋局  115 听说老乞丐  116 得到过灌铅骰子  120 得到君子剑
-#        追杀数是原版的变量 159，道德值 160
+#        通缉值是变量 164（作恶时增加），道德值 160。原版的变量 159“追杀数”是杀死的恶人数，不是通缉
 #==============================================================================
 
 #--------------------------------------------------------------------------
@@ -78,7 +78,7 @@ module WebJianghu
 
   # 赏金猎人开的价：每桩案子五百两
   def bounty
-    [$game_variables[159], 1].max * 500
+    [$game_variables[164], 1].max * 500
   end
 end
 
@@ -125,12 +125,18 @@ bandit = lambda do |c, enemy, toll, loot, share, exp, pot|
 end
 
 WebEncounter.add 1, '山贼劫道', where: :wild, weight: 3, cooldown: 3 do |c|
+  c.if_script('WebRoute.route == :evil && WebRoute.sw(WebRoute::DONE)') do      # 血衣楼主（100_正邪分支.rb）
+    c.text '一伙山贼从林子里窜出来，看清是你，扑通扑通跪了一地：“楼、楼主饶命！小的们有眼无珠……”'
+    c.text '为首的捧上一包银子：“这点孝敬，不成敬意！”'
+    c.gold(500)
+  end.else do
   c.if_variable(19, 150000, 1) do
     c.text '一声呼哨，林子里窜出一伙山贼，为首的独眼汉子扛着一口鬼头刀：“此山是我开，此树是我栽！”'
     bandit.call(c, 146, 1000, [[:weapon, 35, 1, 15], [:armor, 34, 1, 30], [:weapon, 66, 1, 10]], 1500, 600, 150)
   end.else do
     c.text '路边草丛里跳出一个手持钢刀的山贼：“此山是我开，此树是我栽，要想从此过，留下买路钱！”'
     bandit.call(c, 145, 100, [[:armor, 32, 1, 30]], 400, 150, 40)
+  end
   end
 end
 
@@ -335,7 +341,7 @@ end
 # 9 赏金猎人：作恶的后果
 #--------------------------------------------------------------------------
 WebEncounter.add 9, '赏金猎人', where: %i[wild suburb], weight: 4, cooldown: 3,
-                 if: -> { ($game_variables[159] >= 2 || $game_variables[160] < 64) && WebGear.value(:no_bounty) == 0 } do |c|
+                 if: -> { ($game_variables[164] >= 2 || $game_variables[160] < 64) && WebGear.value(:no_bounty) == 0 && !WebRoute.hunted? } do |c|
   fight = lambda do
     c.fight(149, loot: [[:weapon, 36, 1, 25], [:armor, 35, 1, 25]],
       killed: -> { c.text '杀了官府的人，这下事情闹大了。'; c.reward wanted: 1, morality: -3 },
@@ -343,7 +349,7 @@ WebEncounter.add 9, '赏金猎人', where: %i[wild suburb], weight: 4, cooldown:
       escape: -> { c.text '你钻进树林，甩掉了赏金猎人。' },
       lose: -> {
         c.script '$game_party.lose_gold($game_party.gold/2)'
-        c.script '$game_variables[159]=[$game_variables[159]-2,0].max'
+        c.script '$game_variables[164]=[$game_variables[164]-2,0].max'
         c.text '你被铁链锁着押到衙门，罚了一半的银子才放出来。'
       })
   end
@@ -353,7 +359,7 @@ WebEncounter.add 9, '赏金猎人', where: %i[wild suburb], weight: 4, cooldown:
   c.choices(%w[交出赏银 动手]) do |i|
     if i == 0
       c.if_script('$game_party.gold>=$game_variables[9]') do
-        c.script "$game_party.lose_gold($game_variables[9])\n$game_variables[159]=[$game_variables[159]-1,0].max"
+        c.script "$game_party.lose_gold($game_variables[9])\n$game_variables[164]=[$game_variables[164]-1,0].max"
         c.text '赏金猎人收起银子，撕了画像：“这回放你一马。”'
       end.else do
         c.text '“没钱？那就手底下见！”'

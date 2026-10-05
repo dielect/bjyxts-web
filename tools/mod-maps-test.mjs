@@ -197,9 +197,9 @@ check('一、实际内容');
       first = WebMod.maps.key?(mid) ? 1 : WebMod::FIRST_EDIT_EVENT_ID
       $game_map.setup(mid)
       $game_player = Game_Player.new
-      added = $game_map.events.values.select { |e| e.id >= first && e.list.none? { |c| c.code == 201 } }
+      added = $game_map.events.values.select { |e| e.id >= first && (e.list || []).none? { |c| c.code == 201 } }
       next if added.empty?
-      exits = $game_map.events.values.select { |e| [1, 2].include?(e.trigger) && e.list.any? { |c| c.code == 201 } }.map { |e| [e.x, e.y] }
+      exits = $game_map.events.values.select { |e| [1, 2].include?(e.trigger) && (e.list || []).any? { |c| c.code == 201 } }.map { |e| [e.x, e.y] }
       entries = transfers[mid].uniq
       errors << "地图 #{mid} 没有入口" if entries.empty?
       entries.each do |entry|

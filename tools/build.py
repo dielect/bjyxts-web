@@ -61,6 +61,8 @@ PATCHES = [
     ('050', '@help_index= @help_index==-1 ? 1 : 0', '@help_index %= help_pages', 1),
     # 神行（装备特效）：逃跑必定成功
     ('101', 'success = rand(100) < [40 * actors_agi / enemies_agi,80].min', 'success = WebGear.escape? || rand(100) < [40 * actors_agi / enemies_agi,80].min', 1),
+    # 正邪分支：走完一条路线时，结局称号用路线称号（天下名捕 / 血衣楼主 / 独来独往，见 mods/100_正邪分支.rb）
+    ('089', '    i=5 if $game_variables[160]==160\n', '    i=5 if $game_variables[160]==160\n    i=WebRoute.title_index(i)\n', 1),
     ('056', 'if text.size<=75', 'if text.bytesize<=75', 1),
     ('056', 'help_text[0]=text.slice(0,75)+" →"', 'help_text[0]=RGWeb.bslice(text,0,75)+" →"', 1),
     ('056', 'help_text[1]="← "+text.slice(75,text.size-75)', 'help_text[1]="← "+RGWeb.bslice(text,75,text.bytesize-75)', 1),

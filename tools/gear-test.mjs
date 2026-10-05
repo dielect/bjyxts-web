@@ -17,11 +17,11 @@ strip = lambda { a.equip(0, 0); (1..7).each { |i| a.instance_variable_set(:"@arm
   check.call(d && WebSkill.weapon_base(w), "武器 #{w} 不存在或没登记类型")
   check.call(d.nil? || (d.atk <= 99 && d.int_plus == 0 && d.agi_plus == 0), "武器 #{w} 数值越界或带了模板的加成")
 end
-(32..102).each do |i|
+(32...$data_armors.size).each do |i|
   d = $data_armors[i]
   check.call(d && d.auto_state_id == 0 && d.int_plus == 0 && d.pdef <= 60 && (0..5).include?(d.kind), "防具 #{i} 不存在或数据不对")
 end
-check.call($data_weapons.size == 74 && $data_armors.size == 103, "编号范围：武器到 #{$data_weapons.size - 1}，防具到 #{$data_armors.size - 1}")
+check.call($data_weapons.size == 74 && $data_armors.size == 107, "编号范围：武器到 #{$data_weapons.size - 1}，防具到 #{$data_armors.size - 1}")
 [[39, 0], [49, 1], [63, 2], [75, 3], [85, 4], [94, 5]].each { |i, k| check.call($data_armors[i].kind == k, "防具 #{i} 部位应为 #{k}") }
 ($data_weapons.compact + $data_armors.compact).each do |d|
   check.call(d.description.bytesize <= 75, "#{d.name} 的描述超过一页（特效说明另起一页）") if d.id >= 32
@@ -70,7 +70,7 @@ end
 ($data_mapinfos.keys).each { |id| load_data(format('/game/Data/Map%03d.rxdata', id)).events.each_value { |e| e.pages.each { |pg| scan.call(pg.list) } } }
 $data_common_events.compact.each { |ce| scan.call(ce.list) }
 missing = (34..73).reject { |i| src[:weapon].include?(i) }.map { |i| $data_weapons[i].name } +
-          (32..102).reject { |i| src[:armor].include?(i) }.map { |i| $data_armors[i].name }
+          (32...$data_armors.size).reject { |i| src[:armor].include?(i) }.map { |i| $data_armors[i].name }
 check.call(missing.empty?, "这些装备还没有来源：#{missing.join('、')}")
 
 # ---------------------------------------------------------------- 套装件数与条件

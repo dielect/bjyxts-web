@@ -16,7 +16,7 @@
 #                :poison 中毒 {chance, turns}  :stun 点穴 {chance}  :disarm 缴械 {chance}  :slow 迟滞 {chance}
 #   被打时       :dodge 闪避 {chance}  :reduce 减伤 {ratio}  :skill_reduce 化劲 {ratio}  :cap 金刚 {ratio}
 #                :reflect 反震 {ratio}  :counter 反击 {chance}  :guard 护心 {}  :steady 定心 {}
-#   每次行动前   :regen 回春 {pct}  :sp_regen 回内 {pct}
+#   每次行动前   :regen 回春 {pct}  :sp_regen 回内 {pct}  :self_hurt 反噬 {pct}（自己掉血，不致死，配合强力特效用）
 #   武学         :level 武学精进 {skill, n}（战斗中视为等级 +n，同一门最多 +20）  :cost 绝招省力 {ratio, skills}
 #   其他         :escape 神行  :gold 财运 {ratio}  :custom {key, value, text}（给别的模块查的数值）
 #  通用参数：name（显示的名字，默认按类型）、when（生效条件，见 met?）、text（说明文字，不写自动生成）
@@ -29,7 +29,7 @@ module WebGear
     chase: '连击', poison: '中毒', stun: '点穴', disarm: '缴械', slow: '迟滞',
     dodge: '闪避', reduce: '减伤', skill_reduce: '化劲', cap: '金刚', reflect: '反震', counter: '反击',
     guard: '护心', steady: '定心', regen: '回春', sp_regen: '回内', level: '精进', cost: '省力',
-    escape: '神行', gold: '财运', custom: '',
+    escape: '神行', gold: '财运', self_hurt: '反噬', custom: '',
   }
   TYPES = NAMES.keys
   LEVEL_CAP  = 20
@@ -345,6 +345,12 @@ module WebGear
           notes << "内力回复#{gain}"
         end
         show(window, "一股暖意流遍全身，#{notes.join('，')}") unless notes.empty?
+        pct = sum(:self_hurt, :pct, 10)
+        if pct > 0 && battler.hp > 1
+          lost = [[(battler.maxhp * pct / 100).to_i, 1].max, battler.hp - 1].min
+          battler.hp -= lost
+          show(window, "#{label(of(:self_hurt)[0])}：一阵心血翻涌，气血损失#{lost}")
+        end
       else
         left = battler.instance_variable_get(:@gear_poison).to_i
         return if left <= 0 || battler.hp <= 0
@@ -432,6 +438,7 @@ module WebGear
           when :cost then "#{e[:skills] == :all ? '所有绝招' : Array(e[:skills]).map { |s| $data_skills[s].name }.uniq.join('、')}耗内力-#{pct(e[:ratio])}"
           when :escape then '逃跑必定成功'
           when :gold then "战斗所得银两+#{pct(e[:ratio])}"
+          when :self_hurt then "出手前自损#{e[:pct]}%气血"
           else ''
           end
       "#{cond_text(e[:when])}#{t}"

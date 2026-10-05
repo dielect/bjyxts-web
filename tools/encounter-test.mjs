@@ -56,9 +56,11 @@ check.call(avail.call(6, 15) && !avail.call(6), '骰子摊应只在镇上出现'
 check.call(avail.call(7) && !avail.call(8), '正派遇到恶霸，遇不到落单行商')
 $game_variables[160] = 100
 check.call(!avail.call(7) && avail.call(8), '邪派遇不到恶霸，能遇到落单行商')
-check.call(!avail.call(9), '道德 100、没有追杀数时不该有赏金猎人')
-$game_variables[159] = 2
-check.call(avail.call(9), '追杀数 2 时应有赏金猎人')
+check.call(!avail.call(9), '道德 100、没有通缉时不该有赏金猎人')
+$game_variables[159] = 30
+check.call(!avail.call(9), '追杀数（杀恶人数）多不该招来赏金猎人')
+$game_variables[164] = 2
+check.call(avail.call(9), '通缉值 2 时应有赏金猎人')
 reset.call
 $game_variables[19] = 5000
 check.call(!avail.call(2), '经验不到一万不该遇到重伤剑客')
@@ -141,6 +143,45 @@ RUMORS.each { |sw, cond, _| $game_switches[sw] = true unless cond.include?('[19]
 check.call(!avail.call(10, 15), '经验不到 50 万，神兵传闻听不到')
 $game_variables[19] = 600000
 check.call(avail.call(10, 15), '经验 50 万后能听到神兵传闻')
+
+# 正邪分支：分岔与邀请
+reset.call
+$game_variables[19] = 200000; $game_variables[160] = 200
+check.call(!R.good_invite? && !avail.call(20), '经验不到 30 万不触发')
+$game_variables[19] = 300000
+check.call(R.good_invite? && !R.evil_invite?, '道德 200：只有正道邀请')
+$game_variables[160] = 60
+check.call(!R.good_invite? && R.evil_invite?, '道德 60：只有邪道邀请')
+$game_variables[160] = 128
+check.call(R.good_invite? && R.evil_invite?, '道德 128：两边都请')
+R.decline(:good)
+check.call(R.route.nil? && R.evil_invite?, '中间的拒绝了正道，还会有邪道邀请')
+R.decline(:evil)
+check.call(R.route == :alone && !avail.call(20) && !avail.call(21), '两边都拒绝后独行')
+reset.call
+$game_variables[19] = 300000; $game_variables[160] = 200
+R.decline(:good)
+check.call(R.route == :alone, '正派拒绝正道邀请（邪道不会来请）就是独行')
+reset.call
+$game_variables[19] = 300000; $game_variables[160] = 200; $game_switches[119] = true
+check.call(!R.good_invite? && R.evil_invite?, '入伙过黑风寨的，正道不请')
+reset.call
+$game_variables[19] = 300000; $game_switches[R::GOOD] = true; $game_variables[R::STAGE] = 1
+check.call(avail.call(22) && !avail.call(24), '正道第一阶段遇血衣楼杀手')
+reset.call
+$game_variables[19] = 300000; $game_variables[160] = 50; $game_switches[R::EVIL] = true; $game_variables[R::STAGE] = 2; $game_variables[164] = 9
+check.call(avail.call(25) && !avail.call(9), '邪道被总捕追捕时，赏金猎人让位')
+check.call(R.feared?, '通缉很重时镇上的人怕你')
+$game_switches[R::DONE] = true
+check.call($end_com[R.title_index(0)] == '血衣楼主', "邪道结局称号：#{$end_com[R.title_index(0)]}")
+$game_switches[R::EVIL] = false; $game_switches[R::GOOD] = true
+check.call($end_com[R.title_index(5)] == '天下名捕' && R.hero?, '正道结局称号')
+$game_switches[R::DONE] = false
+check.call(R.title_index(5) == 5, '没走完路线时用原版称号')
+check.call($end_com.count('天下名捕') == 1, '结局称号只追加一次')
+reset.call
+$game_switches[R::ALONE] = true; $game_variables[R::COUNT] = 5
+check.call(avail.call(27) && !avail.call(26), '独行打退 5 次后独行侠来访')
 
 # 走路计数：野外每步 2，镇上 1，不在奇遇区域不计
 reset.call

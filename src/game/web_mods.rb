@@ -444,7 +444,10 @@ module WebMod
     # 通用事件。块参数是 Commands，用来写指令；返回 RPG::Event。
     #   trigger：0 确定键  1 主角接触  2 事件接触  3 自动  4 并行
     #   sprite：自制外观（Graphics/Characters 里的行走图），代替 tile；行走图事件不可通行，站在旁边就能调查
-    def event(x, y, name: '', tile: 0, sprite: nil, trigger: 0, through: false, &block)
+    #   switch：这个开关打开时事件才出现（原版的事件页条件），可以写两个：[142, 146]
+    #   variable：[变量, 最小值]，变量达到这个值时才出现
+    #   once：事件里执行 c.done（打开自开关 A）以后，事件就消失（追加一个空白页）
+    def event(x, y, name: '', tile: 0, sprite: nil, trigger: 0, through: false, switch: nil, variable: nil, once: false, &block)
       check_xy(x, y, name.empty? ? 'event' : name)
       e = RPG::Event.new(x, y)
       e.id = @next_id
@@ -460,9 +463,31 @@ module WebMod
       end
       page.trigger = trigger
       page.through = through
+      sw = Array(switch)
+      raise ArgumentError, "event #{name}：switch 最多两个" if sw.size > 2
+      if sw[0]
+        page.condition.switch1_valid = true
+        page.condition.switch1_id = sw[0]
+      end
+      if sw[1]
+        page.condition.switch2_valid = true
+        page.condition.switch2_id = sw[1]
+      end
+      if variable
+        page.condition.variable_valid = true
+        page.condition.variable_id, page.condition.variable_value = variable
+      end
       c = Commands.new
       block.call(c) if block
       page.list = c.finish
+      if once
+        gone = RPG::Event::Page.new
+        gone.condition = Marshal.load(Marshal.dump(page.condition))
+        gone.condition.self_switch_valid = true
+        gone.condition.self_switch_ch = 'A'
+        gone.through = true
+        e.pages << gone
+      end
       @map.events[e.id] = e
       @next_id += 1
       e
@@ -502,7 +527,7 @@ module WebMod
       lines
     end
 
-    def npc(x, y, name: nil, tile: nil, talk: [], look: nil, fight: nil, shop: nil, sprite: nil, &block)
+    def npc(x, y, name: nil, tile: nil, talk: [], look: nil, fight: nil, shop: nil, sprite: nil, switch: nil, variable: nil, once: false, &block)
       fight = { enemy: fight } if fight.is_a?(Integer)
       if fight
         d = WebMod.enemies[fight[:enemy]]
@@ -523,7 +548,8 @@ module WebMod
       labels = %w[交谈 查看]
       labels << '战斗' if fight
       labels << '交易' if shop
-      e = event(x, y, name: name, tile: tile, sprite: sprite) do |c|
+      raise ArgumentError, "npc #{name}：能战斗的 NPC 自带尸体页，不能再用 once" if once && fight
+      e = event(x, y, name: name, tile: tile, sprite: sprite, switch: switch, variable: variable, once: once) do |c|
         c.script '@s=Draw_event_name.new'
         c.choices(labels) do |i|
           case labels[i]
@@ -661,6 +687,11 @@ module WebMod
       cmd(122, id, id, op, 0, value)
     end
 
+    # 打开本事件的自开关 A（配合 event / npc 的 once: true，事件办完后消失）
+    def done
+      cmd(123, 'A', 0)
+    end
+
     def wait(frames)
       cmd(106, frames)
     end
@@ -691,14 +722,16 @@ module WebMod
       n >= 0 ? cmd(125, 0, 0, n) : cmd(125, 1, 0, -n)
     end
 
-    # 经验 / 潜能 / 道德 / 追杀数，同步原版的校验变量（152 经验、153 潜能），否则会被判作弊
+    # 经验 / 潜能 / 道德 / 通缉值，同步原版的校验变量（152 经验、153 潜能），否则会被判作弊
     #   c.reward exp: 300, pot: 100, morality: -5, wanted: 1
+    #   wanted 记在变量 164“通缉值”（官府对你的通缉）。注意原版的变量 159“追杀数”是杀死的恶人数，
+    #   越多越好（结局“无情名捕”），不是通缉。
     def reward(exp: 0, pot: 0, morality: 0, wanted: 0)
       lines = []
       lines << "WebMod.gain_exp(#{exp.to_i})" if exp != 0
       lines << "WebMod.gain_pot(#{pot.to_i})" if pot != 0
       lines << "WebMod.gain_morality(#{morality.to_i})" if morality != 0
-      lines << "$game_variables[159]=[$game_variables[159]+#{wanted.to_i},0].max" if wanted != 0
+      lines << "$game_variables[164]=[$game_variables[164]+#{wanted.to_i},0].max" if wanted != 0
       script lines.join("\n") unless lines.empty?
       self
     end
