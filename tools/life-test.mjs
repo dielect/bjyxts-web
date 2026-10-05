@@ -28,7 +28,8 @@ check.call(L.day == 360 && L.season == 0, '满一年是第 360 天')
 # ---------------------------------------------------------------- 鱼的数据
 check.call(L::FISH.size == 12, "鱼的种类：#{L::FISH.size}")
 L::FISH.each_key { |id| check.call($data_items[id] && $data_items[id].name == L::FISH[id][:name], "鱼 #{id} 没有对应物品") }
-(28..38).each { |id| check.call($data_items[id].common_event_id == 0, "新鱼 #{id} 不该能吃（鲤鱼的公共事件写死扣鲤鱼）") }
+(28..38).each { |id| check.call($data_items[id].common_event_id != 18, "新鱼 #{id} 不能用鲤鱼的公共事件（它写死扣鲤鱼）") }
+check.call([32, 33, 37, 38].all? { |id| $data_items[id].common_event_id.between?(30, 33) } && $data_items[28].common_event_id == 0, '稀罕鱼能吃（各有自己的公共事件），普通鱼不能')
 [:pond, :sea].each do |w|
   4.times { |s| $game_variables[158] = s * 750; check.call(!L.candidates(w).empty?, "#{w} 在#{L.season_name}季没有鱼") }
 end
@@ -36,7 +37,7 @@ end
 # ---------------------------------------------------------------- 钓竿
 check.call(L.rod.nil?, '没装钓竿')
 a.equip(7, 31)
-check.call(L.rod == 31 && L.rod_lines(31) == ['【钓竿】普通'], '原版钓竿')
+check.call(L.rod && L.rod_entry == {} && L.rod_lines(31) == ['【钓竿】普通'], '原版钓竿')
 (107..112).each { |id| check.call($data_armors[id].kind == 6 && L::RODS[id], "钓竿 #{id} 的部位或效果") }
 fresh.call; a.equip(7, 31)
 base = L.bite_chance(false)
@@ -62,6 +63,7 @@ check.call([0, 1].include?($game_variables[9]), '下竿后变量 9 是 0 或 1')
 srand(1)
 landed = 0
 200.times do
+  L.data[:stock] = {}                                         # 只测流程，不让鱼情影响
   L.start_cast(:pond, false)
   next unless $game_variables[9] == 1
   L.hook(false)
@@ -156,6 +158,83 @@ $game_player.moveto(30, 30); WebEncounter.update
 check.call(WebEncounter.figure, '摆摊的走远、走久都不回收')
 $game_map.setup(12); WebEncounter.update
 check.call(WebEncounter.figure.nil?, '换了地图回收')
+
+# ---------------------------------------------------------------- 鱼情：连着钓会钓怕，过日子恢复，睡一觉全恢复
+fresh.call; a.equip(7, 31)
+L.instance_variable_set(:@water, :pond)
+full = L.bite_chance(false)
+12.times { L.land(L::FISH[28]) }
+check.call(L.stock(:pond) < 10 && L.bite_chance(false) < full / 2, "连钓十二条鲫鱼：鱼情 #{L.stock(:pond)}，咬钩 #{full} → #{L.bite_chance(false)}")
+check.call(L.no_bite_text.include?('钓怕'), '鱼情差时提示换地方')
+check.call(L.stock(:sea) == 100, '海里不受鱼塘影响')
+$game_variables[158] += 83                                    # 过十天
+check.call(L.stock(:pond).between?(40, 50), "过十天恢复：#{L.stock(:pond)}")
+$game_variables[158] += 750                                   # 睡一觉
+check.call(L.stock(:pond) == 100, '睡一觉全恢复')
+
+# ---------------------------------------------------------------- 渔隐
+fresh.call
+# 钓出东西：水贼要渔技 3 级以上
+L.data[:skill][:fishing] = 0
+kinds = 2000.times.map { L.junk_roll(:pond) }.compact
+check.call(!kinds.empty? && !kinds.include?(:bandit), "渔技 1 级不会钓上水贼：#{kinds.tally.inspect}")
+L.data[:skill][:fishing] = 30
+kinds = 3000.times.map { L.junk_roll(:pond) }.compact
+check.call(kinds.include?(:bandit) && kinds.size.between?(250, 470), "渔技 3 级的杂物：共 #{kinds.size} 次 #{kinds.tally.inspect}")
+n = $game_party.weapon_number(20)
+L.instance_variable_set(:@junk, :sword); L.junk_text
+check.call($game_party.weapon_number(20) == n + 1, '钓上锈剑')
+L.instance_variable_set(:@junk, :bottle); L.junk_text
+check.call($game_party.item_number(41) >= 1, '钓上漂流瓶')
+# 漂流瓶：一条没听过的传闻
+RUMORS.each { |sw, *| $game_switches[sw] = false }
+$game_variables[19] = 10000
+t = L.bottle_text
+check.call(t.start_with?('纸条上') && RUMORS.count { |sw, *| $game_switches[sw] } == 1, "漂流瓶：#{t}")
+# 经验：稀罕鱼给实战经验，并同步校验值
+$game_variables[19] = 100000; $game_variables[152] = Zlib.crc32('100000', 51)
+L.land(L::FISH[32])
+check.call($game_variables[19] == 100040 && $game_variables[152] == Zlib.crc32('100040', 51), "鳜鱼给 40 经验：#{$game_variables[19]}")
+# 钓鱼练功：只有拿着兵器鱼竿、学过太公钓法才长；规则同原版，受经验上限
+$game_variables[90] = 0; $game_variables[150] = 0
+a.equip(0, 0); L.land(L::FISH[28])
+check.call($game_variables[150] == 0, '没学太公钓法不长')
+$game_variables[90] = 1
+L.land(L::FISH[28])
+check.call($game_variables[150] == 0, '没拿兵器鱼竿不长')
+a.equip(0, 74); $game_variables[13] = 20; $game_variables[48] = 0; $game_variables[93] = 0
+check.call(L.rod && L.rod_fx(:bite) == 5, '兵器鱼竿也能钓鱼')
+30.times { L.land(L::FISH[28]) }
+check.call($game_variables[90] > 1, "钓三十条鲫鱼，太公钓法 1 → #{$game_variables[90]}")
+$game_variables[19] = 0
+lv = $game_variables[90]
+200.times { L.land(L::FISH[28]) }
+check.call($game_variables[90] == lv, "经验不够时太公钓法不再升级（原版的经验上限）：#{lv} → #{$game_variables[90]}")
+a.equip(0, 0)
+# 称号与结局
+L.data[:skill][:fishing] = 0
+check.call(L.title == '渔童', '渔技 1 级叫渔童')
+L.data[:skill][:fishing] = 250
+check.call(L.title == '钓圣' && L.skill_level == 9, "渔技 9 级：#{L.title}")
+L::FISH.each_key { |id| L.data[:fish][id] = [1, 1] }
+(142..149).each { |i| $game_switches[i] = false }
+check.call($end_com[WebRoute.title_index(0)] == '钓圣', '渔技 9 级、十二种鱼：结局称号钓圣')
+$game_switches[142] = true; $game_switches[145] = true
+check.call($end_com[WebRoute.title_index(0)] == '天下名捕', '走完正邪路线的仍用路线称号')
+$game_switches[142] = false; $game_switches[145] = false
+# 渔樵套 4 件：太公钓法战斗中 +20
+a.equip(2, 32); a.equip(3, 72); a.equip(7, 31); a.equip(0, 74)
+check.call(WebGear.set_count(WebGear.sets[:渔樵]) == 4, '斗笠、蓑衣、钓竿、兵器鱼竿算 4 件')
+check.call(WebGear.of(:level).any? { |e| e[:skill] == 90 && e[:n] == 20 }, '4 件：太公钓法 +20')
+a.equip(2, 0); a.equip(3, 0); a.equip(7, 0); a.equip(0, 0)
+# 吃鱼
+$game_variables[24] = 100; $game_variables[15] = 0; $game_variables[16] = 500
+L.eat(:gold)
+check.call($game_variables[24] == 130 && $game_variables[15] > 0, '吃金鲤：内力修为 +30、填饱肚子')
+# 绝招数据
+check.call($data_skills[30].name == '愿者上钩' && $data_skills[31].name == '鲤跃龙门' && WebSkill::PERFORMS[90] == [30, 31], '太公钓法的绝招')
+check.call([32, 33, 37, 38].all? { |id| $data_items[id].type == 0 } && $data_items[28].type == 2, '能吃的鱼在物品栏的“食物”里')
+check.call(WebSkill.category(90) == WebSkill::WEAPON && WebSkill.base_of(90) == 44, '太公钓法是鞭类兵刃')
 
 errs.empty? ? 'ok' : errs.join("\n")
 `);

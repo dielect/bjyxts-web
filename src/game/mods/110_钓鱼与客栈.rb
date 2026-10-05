@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------
 # 鱼与渔具
 #--------------------------------------------------------------------------
-FISH_ITEM = { like: 17, common_event_id: 0, occasion: 3 }       # 以鲤鱼为模板；新鱼不能直接吃（鲤鱼的公共事件写死扣鲤鱼）
+FISH_ITEM = { like: 17, common_event_id: 0, occasion: 3 }       # 以鲤鱼为模板；普通的新鱼不能直接吃（鲤鱼的公共事件写死扣鲤鱼）
 [
   [28, '鲫鱼',   :pond, [0, 1, 2, 3], 0, [3, 10],  20,  '一条巴掌大的鲫鱼，熬汤最鲜'],
   [29, '草鱼',   :pond, [1, 2],       1, [16, 64], 60,  '青灰色的草鱼，个头不小'],
@@ -31,7 +31,10 @@ FISH_ITEM = { like: 17, common_event_id: 0, occasion: 3 }       # 以鲤鱼为�
   [37, '石斑鱼', :sea,  [2],          2, [24, 96], 200, '浑身斑点的石斑鱼，秋天藏在礁石边'],
   [38, '红鲷',   :sea,  [3, 0],       2, [16, 48], 180, '通红的鲷鱼，冬春时节才有'],
 ].each do |id, name, water, seasons, rarity, weight, price, text|
-  WebMod.item id, **FISH_ITEM, name: name, price: price, description: text
+  # 稀罕鱼可以吃（公共事件 30～33 在 120_渔隐.rb）：鳜鱼、石斑鱼、红鲷补气血，金鲤长内力
+  eat = { 32 => 30, 37 => 31, 38 => 32, 33 => 33 }[id]
+  attrs = eat ? FISH_ITEM.merge(common_event_id: eat, occasion: 2, consumable: true) : FISH_ITEM
+  WebMod.item id, **attrs, name: name, price: price, description: text
   WebLife.fish id, name: name, water: water, seasons: seasons, rarity: rarity, weight: weight, price: price
 end
 WebLife.fish 17, name: '鲤鱼', water: :pond, rarity: 0, weight: [8, 40], price: 30   # 原版的鲤鱼（物品不变）
@@ -73,10 +76,15 @@ module WebLife
       $game_variables[9] = rand(100) < bite_chance(@bait) ? 1 : 0
     end
 
-    # 提竿或再等等（变量 9：2 钓上来了 0 跑了）
+    # 提竿或再等等（变量 9：2 钓上来鱼 3 钓上来别的东西 4 钓上来一个水贼 / 海盗 0 跑了）
     def hook(patient)
       keep = patient ? 45 + skill_level * 3 + rod_fx(:keep) : 85 + skill_level
       if rand(100) < keep
+        @junk = patient ? nil : junk_roll(@water)        # 耐心等来的一定是鱼
+        if @junk
+          $game_variables[9] = @junk == :bandit ? 4 : 3
+          return
+        end
         cast(@water, bait: @bait, patient: patient)
         $game_variables[9] = @last ? 2 : 0
       else
@@ -122,11 +130,29 @@ fishing = lambda do |c, water|
               c.text '鱼拉上来了，你却猛然想起：坏了，没带鱼篓。一分神，鱼滑回了水里。'
             end
           end.else do
-            c.say 'WebLife.escape_text'
+            c.if_variable(9, 3) do
+              c.say 'WebLife.junk_text'
+            end.else do
+              c.if_variable(9, 4) do                     # 钓上来一个人（见 120_渔隐.rb）
+                if water == :pond
+                  c.text '钓线猛地一沉，水里“哗啦”冒出一个人来——是个憋着气躲在塘里的水贼！'
+                  c.fight(160, loot: [[:item, 26, 1, 50]],
+                    win: -> { c.text '水贼扔下偷来的钱袋，扑通一声跳回水里逃了。'; c.gold(300) },
+                    lose: -> { c.script '$game_party.lose_gold($game_party.gold/4)'; c.text '水贼抢了你的钱袋，钻进水里不见了。' })
+                else
+                  c.text '海里钩上来的不是鱼，是一条小船——船上跳下几个海盗！'
+                  c.fight(161, loot: [[:item, 41, 1, 60]],
+                    win: -> { c.text '海盗们跳回船上，摇着橹逃走了，船尾扔下一包银子。'; c.gold(600) },
+                    lose: -> { c.script '$game_party.lose_gold($game_party.gold/3)'; c.text '海盗们抢走了你的银子，扬帆而去。' })
+                end
+              end.else do
+                c.say 'WebLife.escape_text'
+              end
+            end
           end
         end
       end.else do
-        c.text(water == :pond ? '过了很久也没有鱼上钩，你一收钓竿，到树荫下歇着去了。' : '潮水涨了又退，一条鱼也没咬钩。')
+        c.say 'WebLife.no_bite_text'
       end
     end
   end.else do

@@ -227,10 +227,12 @@ WebGear.set :书生, '书生',
   pieces: [[:weapon, 68], [:armor, 49], [:armor, 64]],
   tiers: { 2 => [[:level, skill: 48, n: 20]],
            3 => [[:cost, ratio: 0.15, skills: :all]] }
+# 渔樵：钓竿位任一钓竿算一件；第 4 件是能当兵器的鱼竿（120_渔隐.rb）
 WebGear.set :渔樵, '渔樵',
-  pieces: [[:armor, 32], [:armor, 72], [:armor, 31]],
+  pieces: [[:armor, 32], [:armor, 72], [[:armor, 31], *(107..112).map { |i| [:armor, i] }], [[:weapon, 74], [:weapon, 75]]],
   tiers: { 2 => [[:regen, pct: 2]],
-           3 => [[:gold, ratio: 0.3], [:regen, pct: 2]] }
+           3 => [[:gold, ratio: 0.3], [:regen, pct: 2]],
+           4 => [[:level, skill: 90, n: 20], [:cost, ratio: 0.4, skills: [30, 31]]] }
 
 #--------------------------------------------------------------------------
 # 逍遥套接到小无相功、天山折梅手

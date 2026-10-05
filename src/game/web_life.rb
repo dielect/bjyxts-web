@@ -17,6 +17,7 @@
 #      :skill    { fishing: 熟练度 }
 #      :clients  熟客 { :jose => { favor:, shown: [给他看过的鱼] }, :cook => { favor:, done: 完成的订单数 } }
 #      :order    当前订单 { client:, item:, qty:, pay:, day: 接单的日子 } 或 nil
+#      :stock    鱼情 { 水域 => [0～100, 上次结算的日子] }：钓一条掉一截，过日子慢慢恢复
 #      :flags    杂项开关（Symbol => true）
 #    只用 Hash / Array / Integer / Symbol / String，存档导回 PC 原版也能正常读取（多出的实例变量会被忽略）。
 #    地图事件的出现条件需要开关时，另用剧情开关（见 110 的编号登记）。
@@ -38,6 +39,26 @@ module WebLife
   #   size 鱼的重量 +%，sea 海钓时的额外咬钩率与稀罕加成（负数表示在鱼塘反而差），fast 一次只过 1 个时辰，
   #   legend “难得一见”的鱼的权重倍数。内容文件用 WebLife.rod_effect 登记
   RODS = {}
+  WEAPON_RODS = {}                               # 能当兵器的鱼竿（武器编号 => 效果），拿在手里也能钓鱼
+
+  # 钓出来的不是鱼：[种类, 权重, 最低渔技]。种类见 junk_text
+  JUNK = {
+    pond: [[:shoe, 30, 1], [:sword, 15, 1], [:page, 15, 2], [:bottle, 10, 2], [:purse, 20, 1], [:bandit, 10, 3]],
+    sea:  [[:shoe, 20, 1], [:page, 10, 2], [:bottle, 20, 1], [:chest, 20, 2], [:bandit, 10, 3]],
+  }
+  JUNK_CHANCE = { pond: 12, sea: 15 }            # 提竿钓上来东西时，不是鱼的几率（%）
+
+  # 鱼情：钓上一条掉多少（按稀有程度），每过一天恢复多少。连着钓十来条就“钓怕了”，睡一觉（三个月）全恢复
+  STOCK_COST = [8, 10, 14, 20]
+  STOCK_JUNK = 5
+  STOCK_DAILY = 4
+
+  # 渔技称号（按渔技等级）
+  TITLES = [nil, '渔童', '渔童', '渔夫', '渔夫', '老渔翁', '老渔翁', '钓叟', '钓叟', '钓圣', '钓圣']
+  # 钓到鱼给的实战经验（按稀有程度）
+  CATCH_EXP = [0, 10, 40, 150]
+  # 钓鱼练功：拿着能当兵器的鱼竿钓到鱼时，太公钓法（武功 90）长修炼进度
+  ART = 90
 
   # 渔技 1～10：熟练度 0、10、25、45、70、100、140、190、250、320
   SKILL_STEPS = [0, 10, 25, 45, 70, 100, 140, 190, 250, 320]
@@ -101,9 +122,24 @@ module WebLife
       RODS[id] = fx
     end
 
-    def rod
+    # 正在用的鱼竿：拿在手里的兵器鱼竿优先，其次是钓竿位上的钓竿
+    def rod_entry
       a = $game_actors[1]
-      RODS.keys.find { |id| a.armor_equiped?(id) }
+      return WEAPON_RODS[a.weapon_id] if WEAPON_RODS.key?(a.weapon_id)
+      id = RODS.keys.find { |i| a.armor_equiped?(i) }
+      id && RODS[id]
+    end
+
+    def rod
+      rod_entry ? true : nil
+    end
+
+    def weapon_rod?
+      WEAPON_RODS.key?($game_actors[1].weapon_id)
+    end
+
+    def title
+      TITLES[skill_level]
     end
 
     # 物品栏说明页里的钓竿效果（web_gear.rb 的 help_pages 调用）
@@ -121,7 +157,7 @@ module WebLife
     end
 
     def rod_fx(key)
-      (RODS[rod] || {})[key].to_i
+      (rod_entry || {})[key].to_i
     end
 
     def at_sea?
@@ -138,7 +174,32 @@ module WebLife
 
     def bite_chance(bait)
       sea = rod_fx(:sea) * (at_sea? ? 1 : -1)
-      [45 + skill_level * 3 + (bait ? 10 : 0) + rod_fx(:bite) + sea, 90].min
+      base = [45 + skill_level * 3 + (bait ? 10 : 0) + rod_fx(:bite) + sea, 90].min
+      water = @water || :pond
+      (base * (0.25 + 0.75 * stock(water) / 100.0)).to_i      # 鱼情差时咬钩少
+    end
+
+    # ---- 鱼情
+    def stock(water)
+      st = (data[:stock] ||= {})
+      v, last = st[water] || [100, day]
+      v = [v + (day - last) * STOCK_DAILY, 100].min
+      st[water] = [v, day]
+      v
+    end
+
+    def drain_stock(water, n)
+      v = stock(water)
+      data[:stock][water] = [[v - n, 0].max, day]
+    end
+
+    def no_bite_text
+      if stock(@water || :pond) < 30
+        @water == :sea ? '这一片海里的鱼都被你钓怕了，半天没有动静。换个地方，或者过些日子再来吧。' :
+                         '塘里的鱼都被你钓怕了，半天没有动静。换个地方，或者过些日子再来吧。'
+      else
+        @water == :sea ? '潮水涨了又退，一条鱼也没咬钩。' : '过了很久也没有鱼上钩，你一收钓竿，到树荫下歇着去了。'
+      end
     end
 
     def candidates(water)
@@ -171,6 +232,9 @@ module WebLife
       rec[0] += 1
       rec[1] = [rec[1], wt].max
       data[:skill][:fishing] += 1 + f[:rarity] * 2
+      drain_stock(f[:water], STOCK_COST[f[:rarity]])
+      WebMod.gain_exp(CATCH_EXP[f[:rarity]]) if CATCH_EXP[f[:rarity]] > 0
+      practice(1 + f[:rarity])
       [f, wt]
     end
 
@@ -190,8 +254,55 @@ module WebLife
       f = @last or return ''
       _, wt = land(f)
       big = data[:fish][f[:id]][1] == wt && data[:fish][f[:id]][0] > 1 ? '（比以前钓到的都大！）' : ''
-      @last_text = "钓到了一条#{f[:name]}，足有#{weight_text(wt)}！#{big}"
+      exp = CATCH_EXP[f[:rarity]] > 0 ? "（实战经验+#{CATCH_EXP[f[:rarity]]}）" : ''
+      @last_text = "钓到了一条#{f[:name]}，足有#{weight_text(wt)}！#{big}#{exp}#{practice_note}"
     end
+
+    # ---- 钓鱼练功：规则与原版向师傅学武相同——每次加（读书识字÷10＋悟性＋加成）÷2 的修炼进度，
+    #      满（等级＋1）² 升一级，升级前要过原版的经验上限检查（ckeck_exp_maxlv）。只是不花潜能
+    def practice(times)
+      @leveled = nil
+      return unless weapon_rod? && $game_variables[ART].to_i > 0
+      pv = WebSkill.point_var(ART)
+      agi = ($game_variables[48] / 10 + $game_variables[13] + $game_variables[93]) / 2
+      $game_variables[pv] += [agi, 1].max * times
+      while $game_variables[pv] >= ($game_variables[ART] + 1)**2 + 1 && ckeck_exp_maxlv(ART)
+        $game_variables[pv] -= ($game_variables[ART] + 1)**2 + 1
+        $game_variables[ART] += 1
+        @leveled = $game_variables[ART]
+      end
+    end
+
+    def practice_note
+      @leveled ? "一甩一收之间，你对太公钓法又有了新的领悟！（太公钓法升到#{@leveled}级）" : ''
+    end
+
+    # ---- 钓出来的不是鱼
+    def junk_roll(water)
+      return nil unless rand(100) < JUNK_CHANCE[water]
+      pool = JUNK[water].select { |_, _, lv| skill_level >= lv }
+      r = rand(pool.sum { |_, w, _| w })
+      pool.each { |k, w, _| return k if (r -= w) < 0 }
+      nil
+    end
+
+    # 事件里用：变量 9 = 3 钓上来东西（junk_text 发放），4 钓上来一个水贼 / 海盗（要打一架）
+    def junk_text
+      data[:skill][:fishing] += 1
+      drain_stock(@water || :pond, STOCK_JUNK)
+      case @junk
+      when :shoe   then $game_party.gain_armor(39, 1); '钓上来一只湿漉漉的草鞋……也许还能穿？（得到草鞋）'
+      when :sword  then $game_party.gain_weapon(20, 1); '钓线沉甸甸的——竟是一把锈迹斑斑的铁剑！（得到铁剑）'
+      when :page   then $game_party.gain_item(26, 1); '钩上挂着一页泡得发软的纸，上面画着人形和经脉。（得到武学残页）'
+      when :bottle then $game_party.gain_item(41, 1); '钓上来一只封着口的瓶子，里面卷着一张纸条。（得到漂流瓶）'
+      when :purse
+        g = 50 + rand(250); $game_party.gain_gold(g); "钓上来一个烂了一半的钱袋，里面还有#{g}两银子！"
+      when :chest
+        g = 300 + rand(700); $game_party.gain_gold(g); "钓上来一只长满藤壶的小木箱，撬开一看，是#{g}两银子！"
+      else '……'
+      end
+    end
+
 
     def caught?(id)
       (data[:fish][id] || [0])[0] > 0
@@ -269,7 +380,7 @@ class Scene_FishBook
     c.font.color.set(0, 0, 0)
     c.font.size = 22
     l = WebLife
-    c.draw_text(0, 0, 608, 28, "鱼谱　渔技#{l.skill_level}级　已钓到#{l.species_caught}/#{l.data_size_fish}种　当前#{l.season_name}季", 1)
+    c.draw_text(0, 0, 608, 28, "鱼谱　#{l.title || '新手'}（渔技#{l.skill_level}级）　已钓到#{l.species_caught}/#{l.data_size_fish}种　当前#{l.season_name}季", 1)
     c.font.size = 18
     l::FISH.values.sort_by { |f| [f[:water] == :pond ? 0 : 1, f[:rarity], f[:id]] }.each_with_index do |f, i|
       y = 36 + i * 26
