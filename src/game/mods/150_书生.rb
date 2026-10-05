@@ -335,7 +335,7 @@ class Scene_BookList
     l = WebLife
     kind = @kinds[@page]
     c.font.size = 22
-    c.draw_text(0, 0, 608, 28, "书目　#{l.book_title || '识字'}（学识#{l.book_level}级）　读通#{l.books_done}/#{l::BOOKS.size}本　今天还能读#{[l.eyes_max - l.eyes_used, 0].max}章", 1)
+    c.draw_text(0, 0, 608, 28, "书目　#{l.rank_name ? l.rank_name + '　' : ''}#{l.book_title || '识字'}（学识#{l.book_level}级）　读通#{l.books_done}/#{l::BOOKS.size}本　今天还能读#{[l.eyes_max - l.eyes_used, 0].max}章", 1)
     c.font.size = 20
     c.draw_text(0, 40, 608, 28, "← #{l::BOOK_KINDS[kind]}（#{@page + 1}/#{@kinds.size}） →", 1)
     c.font.size = 18
@@ -369,7 +369,7 @@ module WebLife
       $game_party.gain_item(83, 1)
     end
 
-    def yijing_due? = scholar? && book_level >= 6 && !flag?(:yijing)
+    def yijing_due? = scholar? && book_level >= 6 && !flag?(:yijing) && !$game_switches[153] && ban_stage != :informed
 
     def give_yijing
       set_flag(:yijing)
@@ -377,11 +377,18 @@ module WebLife
     end
 
     def rare_stock
-      RARE_BOOKS.select { |id| $game_party.item_number(id) == 0 && !book_done?(id) }
+      pool = RARE_BOOKS + (data[:writ_total].to_i >= BRUSH_WRITS ? [105] : [])
+      pool.select { |id| $game_party.item_number(id) == 0 && !book_done?(id) }
+    end
+
+    def bookstall_goods
+      ids = BOOKSTALL + (ban_stage == :spread || ban[:copied] ? [104] : [])
+      ids.map { |i| [:item, i] } + [[:armor, 116], [:armor, 118]]
     end
   end
 end
 
+# 书架：入行；之后按顺序看有没有剧情（禁书、笔阵图、易经），再开书店
 WebMod.edit 9 do |m|
   m.event 10, 4, name: '书架', tile: 763 do |c|
     c.if_variable(48, 0) do
@@ -393,11 +400,7 @@ WebMod.edit 9 do |m|
         c.script 'WebLife.enter_scholar'
         c.text '得到了三字经、书目！（在物品栏里打开书就能读，一次一章）'
       end.else do
-        c.if_script('WebLife.yijing_due?') do
-          c.text '顾先生踱进书房，看了看你案头的书，点点头：“读书读到这个份上，可以看看这个了。”'
-          c.script 'WebLife.give_yijing'
-          c.text '顾先生把一本批满了小字的《易经》递给你。（得到易经）'
-        end
+        WebLife.shelf_story(c)
         c.text '书架上摆着蒙学和经书，书童在一旁磨墨。'
         c.script 'WebMod.open_shop(WebLife::CLASSIC_SHELF.map { |i| [:item, i] })'
       end
@@ -408,7 +411,7 @@ end
 WebMod.edit 15 do |m|
   m.npc 6, 17, name: '书摊老板', tile: 885,
         look: { age: 5, level: 0, attack: 0, items: '长衫', text: '一个戴着瓜皮帽的老头，守着一摊旧书，见谁都说“开卷有益”。' },
-        shop: WebLife::BOOKSTALL.map { |i| [:item, i] } + [[:armor, 116], [:armor, 118]] do |c|
+        shop: lambda { |c| c.script 'WebMod.open_shop(WebLife.bookstall_goods)' } do |c|
     c.one_of '开卷有益，开卷有益。', '话本看得最快，兵书最难啃。', '杂学也是学问，本草纲目读通了，草药自己就会用。'
   end
 end
@@ -490,11 +493,14 @@ module WebLife
     def write(i)
       key, kind, _, _, words, base = @writ
       right = i == @writ_answer
-      pay = (base * (1 + book_level * 0.15) * (right ? 1 : 0.4) * (1 + WebGear.value(:write_pay))).to_i
+      pay = (base * (1 + book_level * 0.15) * (right ? 1 : 0.4) * (1 + WebGear.value(:write_pay)) * rank_rate).to_i
       $game_party.gain_gold(pay)
       gain_book_skill(right ? 3 : 1)
+      data[:writ_total] = data[:writ_total].to_i + 1
       pass_time(2)
+      up = train(BRUSH_ART, right ? 3 : 1)
       text = right ? "#{kind}写好了，客人捧着看了又看，连声道谢，付了#{pay}两。" : "客人看了直皱眉：“这……怎么是这么写的？”只给了#{pay}两。（该写“#{words[0]}”）"
+      text += "笔锋一转之间，你对一阳书指又有了新的领悟！（#{up}级）" if up
       text += wang_progress if key == :wang
       text
     end
@@ -538,3 +544,425 @@ end
 WebEquip.armor 116, '云头履', :鞋, 4, 300, '鞋头翘起一朵云，走路斯斯文文'
 WebEquip.armor 117, '玉佩', :腰带, 6, 1200, '王大娘的儿子在边关立功得的玉佩', str: 1
 WebEquip.armor 118, '书箱', :披风, 3, 400, '竹编的书箱，背着赶路、赶考都用得着'
+
+#==========================================================================
+# 第二批：一阳书指、科举、禁书
+#--------------------------------------------------------------------------
+#  一阳书指（拳脚 62，基础基本拳脚）：致敬朱子柳把书法化进一阳指。代写满十五回后，顾先生（或落魄书生）给《笔阵图》，
+#        读通就会。之后代写时按原版学武规则长进度（同钓鱼、砍柴练功）。
+#        绝招“笔走龙蛇”（60 级，三连指，可能点中穴道），“力透纸背”（120 级，五连指；禁书一事护住顾先生的才传）。
+#  科举：衙门刘师爷主持，每年秋天开考一次。县试（学识 3 级，报名 100 两）五题对三题中秀才；
+#        乡试（秀才、学识 7 级，报名 500 两）五题对四题中举人（有顾先生的荐书，对三题就行）。
+#        秀才代写报酬 ×1.3；举人 ×1.6，每季到师爷那儿领三百两廪银。
+#  禁书：学识 5 级、读通六本书以后，顾先生说起刘师爷在查禁书，他写的《日知录》书稿犯忌。二十天后官府来搜。
+#    1 替先生藏书稿：带在身上，路上可能被捕快搜身（让搜、动手、或亮出六扇门腰牌）；躲过搜查后还给先生
+#    2 抄一份传出去：连抄两天，得一本《日知录》，书摊也开始卖；先生自己烧了原稿，官府扑空；你的通缉值 +1
+#    3 告发：向刘师爷告发，得两千两、通缉值清零、道德 −10；先生被带走一个月
+#    4 不管：到期官府搜出书稿，先生被带走一个月
+#    护住先生的（1、2）：先生传“力透纸背”；藏书的还给你写一封荐书（乡试少答对一题）
+#
+#  编号：武功 62 一阳书指（进度变量 122）；绝招 35 笔走龙蛇、36 力透纸背；物品 103 日知录书稿、104 日知录、105 笔阵图；
+#        开关 153 顾先生被带走；奇遇 31 捕快搜身
+#==========================================================================
+module WebLife
+  BRUSH_ART = 62
+  BRUSH_WRITS = 15
+  BAN_DAYS = 20
+  AWAY_DAYS = 30
+  RANKS = [nil, '秀才', '举人']
+end
+
+WebLife.book 104, '日知录', :classic, 6, 800, '顾先生的书，天下兴亡，匹夫有责', [:moral, 5, 500],
+  [['「天下兴亡」下一句？', %w[匹夫有责 在于君王 自有天命]], ['顾先生说读书人要？', %w[经世致用 只读圣贤书 闭门不出]]]
+WebLife.book 105, '笔阵图', :misc, 4, 3000, '卫夫人讲书法笔势的书，书页边上画满了指法', [:brush],
+  [['这本书相传是谁写的？', %w[卫夫人 王羲之 颜真卿]], ['「点」如什么？', %w[高峰坠石 千里阵云 万岁枯藤]]]
+WebMod.item 103, like: 21, name: '日知录书稿', price: 0, description: '顾先生亲笔的书稿，字迹密密麻麻。被官府搜到就是大祸'
+
+#--------------------------------------------------------------------------
+# 一阳书指
+#--------------------------------------------------------------------------
+WebSkill.add_skill 62, WebSkill::FIST, 40
+WebMod.variable_name 62, '一阳书指'
+WebSkill.attack_words 62, [
+  [0,   '%{user}食指一点，如写“永”字的侧点，点向%{objector}的%{sp}', 25, 32, 4],
+  [0,   '%{user}手指一横，如笔走横画，划向%{objector}的%{sp}', 25, 30, 4],
+  [15,  '%{user}一竖直下，指力如悬针，刺向%{objector}的%{sp}', 40, 32, 4],
+  [30,  '%{user}手腕一翻，一撇一捺，指风交错，罩住%{objector}的%{sp}', 55, 31, 3],
+  [50,  '%{user}指走草书，一气呵成，连点%{objector}身上三处大穴', 75, 33, 4],
+  [80,  '%{user}以指代笔，凌空写了个“剑”字，笔划间尽是剑意，直逼%{objector}', 100, 34, 4],
+  [120, '%{user}一指点出，正是一阳指的功夫，一缕劲风嗤嗤作响，射向%{objector}的%{sp}', 130, 35, 4],
+]
+WebMod.skill 35, like: 28, name: '笔走龙蛇', sp_cost: 400, description: '以指作笔，三笔连环，可能点中穴道'
+WebMod.skill 36, like: 28, name: '力透纸背', sp_cost: 700, description: '五指连书，一笔重过一笔'
+WebSkill.perform 62, 35, 36
+WebSkill.requirement 35, [[29, 62], [62, 60], [40, 60]]
+WebSkill.requirement 36, [[29, 62], [62, 120], [40, 120]]
+WebSkill.combo 35, moves_of: 62, times: 3, stun: { state: 1, text: '%{objector}被点中了穴道，一时动弹不得！' }
+WebSkill.combo 36, moves_of: 62, times: 5
+WebSkill.skill_words 35, ['%{user}一指凌空，龙飞凤舞，像在%{objector}身上写一幅狂草——笔走龙蛇！']
+WebSkill.skill_words 36, ['%{user}屏息凝神，五指如握千钧之笔，一笔一划都透出纸背，向%{objector}写去！']
+
+alias __brush_study_skill study_skill
+def study_skill
+  __brush_study_skill
+  $game_party.actors[0].forget_skill(36) unless WebLife.flag?(:lituo)
+end
+
+#--------------------------------------------------------------------------
+# 功名、禁书、笔阵图的规则
+#--------------------------------------------------------------------------
+module WebLife
+  class << self
+    # ---- 功名
+    def rank = data[:rank].to_i
+    def rank_name = RANKS[rank]
+    def rank_rate = [1, 1.3, 1.6][rank]
+    def year = ticks / 3000
+
+    def exam_kind = rank == 0 ? '县试' : '乡试'
+    def exam_fee = rank == 0 ? 100 : 500
+    def exam_need = rank == 0 ? 3 : (flag?(:recommend) ? 3 : 4)
+
+    def exam_ready?
+      rank < 2 && book_level >= (rank == 0 ? 3 : 7)
+    end
+
+    def exam_open?
+      exam_ready? && season == 2 && data[:exam_year] != year
+    end
+
+    def exam_info
+      return '“举人老爷，今年的廪银可领过了？”师爷满脸堆笑。' if rank == 2
+      need = rank == 0 ? 3 : 7
+      return "“#{exam_kind}要学问扎实的人去考，学识#{need}级再来吧。”" unless exam_ready?
+      return '“今年的秋闱你已经考过了，明年秋天再来。”' if data[:exam_year] == year
+      "“#{exam_kind}每年秋天开考，到时候来报名，报名费#{exam_fee}两。”"
+    end
+
+    def exam_pool
+      base = BOOKS.values.select { |b| b[:kind] == :classic }.flat_map { |b| b[:quiz] }
+      rank == 0 ? base : POLICY + BOOKS[88][:quiz] + BOOKS[89][:quiz] + BOOKS[104][:quiz]
+    end
+
+    def exam_begin
+      $game_party.lose_gold(exam_fee)
+      data[:exam_year] = year
+      @exam = exam_pool.sample(5)
+      @exam_right = 0
+      @exam_i = 0
+    end
+
+    def exam_question
+      q = @exam[@exam_i]
+      WebMod.choice_labels = q[1].shuffle
+      @exam_answer = WebMod.choice_labels.index(q[1][0])
+      "第#{@exam_i + 1}题：#{q[0]}"
+    end
+
+    def exam_answer(i)
+      @exam_right += 1 if i == @exam_answer
+      @exam_i += 1
+    end
+
+    def exam_result
+      pass_time(8)
+      if @exam_right >= exam_need
+        data[:rank] = rank + 1
+        gain_book_skill(10)
+        data[:stipend] = season_index if rank == 2
+        "五题答对#{@exam_right}题。放榜那天，榜上赫然写着你的名字——你中了#{rank_name}！" \
+          "#{rank == 1 ? '（代写报酬提高三成）' : '（代写报酬提高六成，每季可到师爷那儿领三百两廪银）'}"
+      else
+        "五题只答对#{@exam_right}题，要对#{exam_need}题才行。放榜那天，你在榜上从头找到尾……名落孙山。明年再来吧。"
+      end
+    end
+
+    def season_index = ticks / 750
+
+    def stipend_due? = rank == 2 && data[:stipend].to_i < season_index
+
+    def take_stipend
+      n = season_index - data[:stipend].to_i
+      data[:stipend] = season_index
+      $game_party.gain_gold(300 * n)
+      "师爷点出#{300 * n}两廪银：“举人老爷收好。”"
+    end
+
+    # ---- 禁书
+    def ban
+      data[:ban] ||= {}
+    end
+
+    def ban_stage = ban[:stage]
+
+    def ban_due?
+      ban_stage.nil? && book_level >= 5 && books_done >= 6 && !$game_switches[153]
+    end
+
+    def ban_start
+      ban[:stage] = :search
+      ban[:day] = day
+    end
+
+    def ban_days_left = [ban[:day].to_i + BAN_DAYS - day, 0].max
+
+    def ban_hint
+      "顾先生压低声音：“书稿的事……刘师爷说#{ban_days_left}天后来搜。”"
+    end
+
+    def ban_carry
+      ban[:stage] = :carry
+      $game_party.gain_item(103, 1)
+    end
+
+    def ban_copy
+      ban[:stage] = :copied
+      ban[:copied] = true
+      pass_time(16)
+      $game_party.gain_item(104, 1)
+      "你在书房里点着灯，整整抄了两天两夜，手腕都抄肿了。（得到日知录）顾先生翻着你的抄本，眼圈红了：“好，好……书在人间，就烧不掉了。”"
+    end
+
+    def ban_inform
+      ban[:stage] = :informed
+      take_away
+      $game_party.gain_gold(2000)
+      $game_variables[164] = 0
+      WebMod.gain_morality(-10)
+      text = '刘师爷眼睛一亮，当即带着捕快去了私塾。不一会儿，顾先生就被押着走过了街口。师爷赏了你两千两，还把你案底上的事一笔勾销了。（通缉值清零，道德−10）'
+      text += '周铁总捕听说后，也托人捎来一句“办得好”。' if $game_switches[117]
+      text
+    end
+
+    def take_away
+      $game_switches[153] = true
+      ban[:back] = day + AWAY_DAYS
+      $game_map.need_refresh = true
+    end
+
+    # 搜身：交出书稿，等于书稿落到官府手里
+    def ban_seized
+      $game_party.lose_item(103, $game_party.item_number(103))
+      ban[:stage] = :seized
+      take_away
+    end
+
+    # 进出地图时检查：到期搜查；先生被带走一个月后回来
+    def ban_tick
+      if %i[search carry copied].include?(ban_stage) && ban_days_left <= 0
+        case ban_stage
+        when :search then ban[:stage] = :ignored; take_away
+        when :carry then ban[:stage] = :searched
+        when :copied then ban[:stage] = :spread
+        end
+      end
+      if $game_switches[153] && ban[:back] && day >= ban[:back]
+        $game_switches[153] = false
+        ban[:back] = nil
+      end
+    end
+
+    def ban_reward_due?
+      (ban_stage == :searched && $game_party.item_number(103) > 0) || (ban_stage == :spread && !flag?(:lituo))
+    end
+
+    def ban_reward
+      text = if ban_stage == :searched
+               $game_party.lose_item(103, 1)
+               ban[:stage] = :hidden
+               set_flag(:recommend)
+               '顾先生接过书稿，摩挲了半天：“官府翻遍了私塾，一个字也没找到。多亏了你。”他另写了一封荐书：“去考乡试，带上它。”'
+             else
+               '顾先生笑道：“原稿我烧了，官府扑了个空。可书已经在外头传开了——这把火，是他们烧不灭的。”'
+             end
+      set_flag(:lituo)
+      study_skill
+      note = $game_variables[BRUSH_ART] > 0 ? '' : '先生又叮嘱：“这一招要会一阳书指才使得出，代写多了，我送你一本笔阵图。”'
+      "#{text}#{note}（学会了“力透纸背”：一阳书指 120 级、基本拳脚 120 级可用）"
+    end
+
+    def ban_ended_line
+      case ban_stage
+      when :informed then '书童躲着你，小声嘀咕：“就是他……”'
+      when :ignored, :seized then '书童红着眼睛：“先生的书稿被官府搜走烧了……”'
+      else ''
+      end
+    end
+
+    # ---- 笔阵图：代写满十五回，顾先生送
+    def brush_due? = scholar? && data[:writ_total].to_i >= BRUSH_WRITS && !flag?(:brush) && !$game_switches[153] && ban_stage != :informed
+
+    def give_brush
+      set_flag(:brush)
+      $game_party.gain_item(105, 1)
+    end
+  end
+
+  # 乡试的策论题
+  POLICY = [
+    ['治水之道，贵在？', %w[疏导 堵截 祭河神]],
+    ['「民为贵，社稷次之」君？', %w[为轻 为重 为先]],
+    ['「苛政猛于」什么？', %w[虎也 狼也 火也]],
+    ['荒年赈灾，先当？', %w[开仓放粮 加征赋税 闭城自守]],
+    ['「先天下之忧而忧」下句？', %w[后天下之乐而乐 与民同乐 乐在其中]],
+    ['「水能载舟」下一句？', %w[亦能覆舟 亦能行舟 舟行千里]],
+    ['「工欲善其事」下一句？', %w[必先利其器 必先正其心 必先修其身]],
+    ['「温故而知新」下一句？', %w[可以为师矣 学而不厌 不亦乐乎]],
+    ['「路漫漫其修远兮」下句？', %w[吾将上下而求索 吾将独善其身 长路漫漫兮]],
+  ]
+end
+
+# 读通笔阵图：学会一阳书指（读书收获里加一种）
+module WebLife
+  class << self
+    alias __brush_book_reward book_reward
+    def book_reward(b)
+      return __brush_book_reward(b) unless b[:reward][0] == :brush
+      gain_book_skill(5)
+      return '笔阵图你早已烂熟于心。' if $game_variables[BRUSH_ART] > 0
+      $game_variables[BRUSH_ART] = 1
+      '你照着书页边上的指法比划，以指作笔，点、横、竖、撇……竟是一套指上功夫！（学会了一阳书指：拳脚，空手启用；代写时功夫会跟着长）'
+    end
+  end
+end
+
+class Game_Map
+  alias __ban_setup setup
+  def setup(map_id)
+    WebLife.ban_tick if $game_system
+    __ban_setup(map_id)
+  end
+end
+
+#--------------------------------------------------------------------------
+# 书架上的剧情（150 前半的书架事件调用）：禁书、笔阵图、易经
+#--------------------------------------------------------------------------
+module WebLife
+  def self.shelf_story(c)
+    c.if_switch(153) do
+      c.text '顾先生的座位空着。书童说，先生被衙门带走了，要过些日子才能回来。'
+    end.else do
+      c.if_script('WebLife.ban_due?') do
+        c.text '顾先生合上门，从书箱底下取出一叠书稿：“这是我写了半辈子的《日知录》。”'
+        c.text '“衙门的刘师爷近来在查禁书，我这里头有些话，官府是不爱听的。他说二十天后来私塾搜查。”'
+        c.script 'WebLife.ban_start'
+        c.text '“我一把年纪，不怕什么。只可惜了这些字……”（替先生藏起书稿、抄一份传出去，或者向刘师爷告发——你自己拿主意）'
+      end
+      c.if_script('WebLife.ban_stage == :search') do
+        c.say 'WebLife.ban_hint'
+        c.choices(%w[替先生藏起来 抄一份传出去 先生保重]) do |i|
+          case i
+          when 0
+            c.script 'WebLife.ban_carry'
+            c.text '你把书稿贴身藏好。顾先生拱了拱手：“拜托了。等搜过了，再还给我。”（得到日知录书稿：路上小心捕快）'
+          when 1
+            c.say 'WebLife.ban_copy'
+            c.reward wanted: 1
+          else
+            c.text '顾先生点点头，不再多说。'
+          end
+        end
+      end
+      c.if_script('WebLife.ban_reward_due?') do
+        c.say 'WebLife.ban_reward'
+      end
+      c.if_script('WebLife.brush_due?') do
+        c.text '顾先生拿起你代人写的一封家书，看了又看：“你这笔字，有筋骨了。”'
+        c.text '“这本卫夫人的《笔阵图》送你。书页边上的指法，是我一位姓朱的故人画的——他说书法和武功，本是一回事。”'
+        c.script 'WebLife.give_brush'
+        c.text '得到了笔阵图！'
+      end
+      c.if_script('WebLife.yijing_due?') do
+        c.text '顾先生踱进书房，看了看你案头的书，点点头：“读书读到这个份上，可以看看这个了。”'
+        c.script 'WebLife.give_yijing'
+        c.text '顾先生把一本批满了小字的《易经》递给你。（得到易经）'
+      end
+    end
+    c.if_script('!WebLife.ban_ended_line.empty?') do
+      c.say 'WebLife.ban_ended_line'
+    end
+  end
+end
+
+# 顾先生被带走时不在私塾（开关 153）
+WebMod.edit 9 do |m|
+  m.away '顾炎武', switch: 153
+end
+
+#--------------------------------------------------------------------------
+# 刘师爷：衙门大堂。科举报名、廪银、禁书
+#--------------------------------------------------------------------------
+WebMod.edit 10 do |m|
+  m.npc 11, 4, name: '刘师爷', tile: 876,
+        look: { age: 4, level: 2, attack: 1, items: '长衫、折扇', text: '衙门的师爷，八字胡，一把折扇不离手。管着县里的文书、科举，还有查禁书。' } do |c|
+    c.if_script('WebLife.ban_stage == :search || WebLife.ban_stage == :carry') do
+      c.text '刘师爷摇着折扇：“最近上头查禁书查得紧。你是读书人，可听说镇上谁家藏着不该藏的书？”'
+      c.choices(%w[告发顾炎武 不知道]) do |i|
+        if i == 0
+          c.if_script('WebLife.ban_stage == :carry') do
+            c.text '你刚要开口，摸到怀里那叠书稿，又把话咽了回去。（书稿在你身上，告发不成）'
+          end.else do
+            c.say 'WebLife.ban_inform'
+          end
+        else
+          c.text '“哼，知道了可要来报。”'
+        end
+      end
+    end
+    c.if_script('WebLife.stipend_due?') do
+      c.say 'WebLife.take_stipend'
+    end
+    c.if_script('WebLife.exam_open?') do
+      c.text '“今年秋闱开考了。要报名吗？”'
+      c.choices(%w[报名应考 改天再来]) do |i|
+        if i == 0
+          c.if_script('$game_party.gold >= WebLife.exam_fee') do
+            c.script 'WebLife.exam_begin'
+            c.text '你领了号牌，进了考棚。一共五道题。'
+            5.times do
+              c.say 'WebLife.exam_question'
+              c.choices(%w[{0} {1} {2}]) { |k| c.script "WebLife.exam_answer(#{k})" }
+            end
+            c.say 'WebLife.exam_result'
+          end.else do
+            c.text '“报名费都交不起，还考什么？”'
+          end
+        end
+      end
+    end.else do
+      c.say 'WebLife.exam_info'
+    end
+  end
+end
+
+#--------------------------------------------------------------------------
+# 奇遇 31 捕快搜身：身上带着日知录书稿时
+#--------------------------------------------------------------------------
+WebEncounter.add 31, '捕快搜身', combat: true, show: { tile: 845 }, where: %i[town suburb], weight: 8, cooldown: 2,
+                 if: -> { WebLife.ban_stage == :carry && $game_party.item_number(103) > 0 } do |c|
+  c.text '两个捕快拦住了你：“站住！刘师爷有令，读书人一律搜身！”'
+  fight = lambda do
+    c.fight(159,
+      win: -> { c.text '捕快捂着脸跑了。这下你的案底上又多了一笔。'; c.reward wanted: 1 },
+      escape: -> { c.text '你夺路而逃，书稿还在怀里。' },
+      lose: -> { c.script 'WebLife.ban_seized'; c.text '你被按倒在地，书稿被搜了出去。捕快拿着它，一溜烟跑回了衙门……' })
+  end
+  c.if_switch(117) do
+    c.choices(%w[亮出六扇门腰牌 让他搜 动手]) do |i|
+      case i
+      when 0 then c.text '捕快一看腰牌，立刻换了笑脸：“原来是六扇门的大人，小的有眼无珠！”'
+      when 1 then c.script 'WebLife.ban_seized'; c.text '捕快从你怀里搜出了书稿：“好哇，果然有！”'
+      else fight.call
+      end
+    end
+  end.else do
+    c.choices(%w[让他搜 动手]) do |i|
+      if i == 0
+        c.script 'WebLife.ban_seized'
+        c.text '捕快从你怀里搜出了书稿：“好哇，果然有！”'
+      else
+        fight.call
+      end
+    end
+  end
+end

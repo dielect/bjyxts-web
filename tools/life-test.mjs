@@ -485,7 +485,7 @@ $game_variables[48] = 1; $game_variables[13] = 20; $game_variables[19] = 3000000
 check.call(!L.scholar?, '没入行')
 L.enter_scholar
 check.call(L.scholar? && $game_party.item_number(102) == 1 && $game_party.item_number(83) >= 1, '入行：书目、三字经')
-check.call(L::BOOKS.size == 19 && L::BOOKS.values.all? { |b| b[:quiz].all? { |q, o| o.size == 3 && WebMod.message_rows(q) == 1 } }, '十九本书，小题都是一行三个选项')
+check.call(L::BOOKS.size == 21 && L::BOOKS.values.all? { |b| b[:quiz].all? { |q, o| o.size == 3 && WebMod.message_rows(q) == 1 } }, '二十一本书，小题都是一行三个选项')
 check.call(L::BOOKS.keys.all? { |id| $data_items[id].common_event_id == 53 && !$data_items[id].consumable }, '书在物品栏里打开就读，不会读掉')
 # 读一章
 $web_used_item = 85
@@ -529,7 +529,7 @@ L::BOOKS.each do |id, b|
   when :moral then check.call($game_variables[160] >= moral0, '经书加道德')
   end
 end
-check.call(L.books_done == 19, '全部读通')
+check.call(L.books_done == L::BOOKS.size, '全部读通')
 # 读书识字只读到 100 级
 $game_variables[48] = 100
 L.data[:eyes] = nil; $web_used_item = 95; L.start_read; L.instance_variable_set(:@read_interlude, nil); L.read_chapter
@@ -570,6 +570,109 @@ g0 = $game_party.gold
 t = L.write(wrong)
 check.call(full > 0 && t.include?('该写'), "写对全价 #{full}，写错打折：#{t}")
 check.call(WebMod.message_rows(L::WRITS.map { |w| w[3] }.max_by(&:size)) == 1, '代写的题目都在一行内')
+# ---- 一阳书指：代写满十五回送笔阵图，读通学会；代写练功
+check.call(WebSkill.category(62) == WebSkill::FIST && WebSkill.base_of(62) == 40 && WebSkill::PERFORMS[62] == [35, 36], '一阳书指是拳脚，带两个绝招')
+fresh.call; L.enter_scholar
+$game_switches[153] = false
+L.data[:writ_total] = 14
+check.call(!L.brush_due?, '代写不满十五回')
+L.data[:writ_total] = 15
+check.call(L.brush_due?, '代写满十五回，顾先生送笔阵图')
+L.give_brush
+check.call($game_party.item_number(105) == 1 && !L.brush_due?, '得到笔阵图')
+$game_variables[62] = 0
+L.data[:eyes] = nil; $web_used_item = 105; L.books_read[105] = 3
+L.start_read; L.instance_variable_set(:@read_interlude, nil); L.instance_variable_set(:@quiz, nil)
+t = L.read_chapter
+check.call($game_variables[62] == 1 && t.include?('一阳书指'), "读通笔阵图学会一阳书指：#{t}")
+$game_variables[19] = 3000000; $game_variables[122] = 0
+10.times { L.data[:writes] = nil; L.start_write; L.writ_question; L.write(L.instance_variable_get(:@writ_answer)) }
+check.call($game_variables[62] > 1, "代写练一阳书指：#{$game_variables[62]}")
+# 力透纸背：护住先生才传
+$game_variables[29] = 62; $game_variables[62] = 130; $game_variables[40] = 130; a.equip(0, 0)
+study_skill
+check.call(a.skills.include?(35) && !a.skills.include?(36), "空手启用一阳书指学会笔走龙蛇，力透纸背还没传：#{a.skills.inspect}")
+# ---- 科举
+fresh.call; L.enter_scholar
+check.call(!L.exam_ready? && L.exam_info.include?('学识3级'), '学识不够不能考')
+L.data[:skill][:book] = 30
+$game_variables[158] = 0
+check.call(L.exam_ready? && !L.exam_open?, '春天不开考')
+$game_variables[158] = 2 * 750
+check.call(L.exam_open? && L.exam_kind == '县试' && L.exam_fee == 100, '秋天开县试')
+L::BOOKS.values.flat_map { |b| b[:quiz] }.each { |q, _| check.call(WebMod.message_rows("第5题：#{q}") == 1, "考题一行以内：#{q}") }
+L::POLICY.each { |q, o| check.call(WebMod.message_rows("第5题：#{q}") == 1 && o.size == 3, "策论题一行以内：#{q}") }
+$game_party.gain_gold(1000)
+g0 = $game_party.gold
+L.exam_begin
+5.times { L.exam_question; L.exam_answer(L.instance_variable_get(:@exam_answer)) }
+t = L.exam_result
+check.call(L.rank_name == '秀才' && $game_party.gold == g0 - 100 && !L.exam_open?, "县试中秀才：#{t}")
+$game_variables[158] += 3000
+check.call(!L.exam_ready?, '乡试要学识 7 级')
+L.data[:skill][:book] = 200
+check.call(L.exam_open? && L.exam_kind == '乡试' && L.exam_need == 4, '第二年秋天开乡试，要对四题')
+L.exam_begin
+5.times { |k| L.exam_question; L.exam_answer(k < 3 ? L.instance_variable_get(:@exam_answer) : (L.instance_variable_get(:@exam_answer) + 1) % 3) }
+t = L.exam_result
+check.call(L.rank == 1 && t.include?('名落孙山'), "乡试只对三题落榜：#{t}")
+L.set_flag(:recommend)
+check.call(L.exam_need == 3, '有荐书对三题就行')
+$game_variables[158] += 3000
+L.exam_begin
+5.times { |k| L.exam_question; L.exam_answer(k < 3 ? L.instance_variable_get(:@exam_answer) : (L.instance_variable_get(:@exam_answer) + 1) % 3) }
+L.exam_result
+check.call(L.rank_name == '举人' && L.rank_rate == 1.6 && !L.stipend_due?, '中举人，当季不领廪银')
+$game_variables[158] += 750 * 2
+g0 = $game_party.gold
+L.take_stipend if L.stipend_due?
+check.call($game_party.gold - g0 == 600 && !L.stipend_due?, '过了两季领六百两廪银')
+# ---- 禁书
+setup_ban = lambda do
+  fresh.call; L.enter_scholar
+  $game_switches[153] = false; L.data[:flags].delete(:lituo)
+  L.data[:skill][:book] = 80
+  L::BOOKS.keys.first(6).each { |id| L.books_read[id] = L::BOOKS[id][:chapters] }
+end
+setup_ban.call
+check.call(L.ban_due?, '学识 5 级、读通六本，顾先生说起禁书')
+L.ban_start
+check.call(L.ban_stage == :search && L.ban_hint.include?('20天'), '二十天后来搜')
+# 1 藏书稿：躲过搜查，还给先生
+L.ban_carry
+check.call($game_party.item_number(103) == 1 && WebEncounter.list[31][:cond].call, '带着书稿，可能被搜身')
+$game_variables[158] += 170; L.ban_tick
+check.call(L.ban_stage == :searched && L.ban_reward_due? && !$game_switches[153], '搜查扑空')
+t = L.ban_reward
+check.call(L.ban_stage == :hidden && L.flag?(:lituo) && L.flag?(:recommend) && $game_party.item_number(103) == 0, "还书稿：传力透纸背、写荐书：#{t}")
+$game_variables[29] = 62; $game_variables[62] = 130; $game_variables[40] = 130; a.equip(0, 0); study_skill
+check.call(a.skills.include?(36), '学会力透纸背')
+# 2 抄一份
+setup_ban.call; L.ban_start
+w0 = $game_variables[164]
+L.ban_copy
+check.call($game_party.item_number(104) == 1 && L.bookstall_goods.include?([:item, 104]), '抄书：得到日知录，书摊也卖')
+$game_variables[158] += 170; L.ban_tick
+check.call(L.ban_stage == :spread && L.ban_reward_due?, '先生烧了原稿，官府扑空')
+L.ban_reward
+check.call(L.flag?(:lituo) && !L.flag?(:recommend), '抄书的也传力透纸背，没有荐书')
+# 3 告发
+setup_ban.call; L.ban_start
+$game_variables[164] = 3; m0 = $game_variables[160]; g0 = $game_party.gold
+L.ban_inform
+check.call($game_switches[153] && $game_variables[164] == 0 && $game_party.gold - g0 == 2000 && $game_variables[160] == [m0 - 10, 0].max && !L.ban_reward_due?, '告发：两千两，通缉清零，先生被带走')
+check.call(!L.ban_ended_line.empty? && !L.yijing_due? && !L.brush_due?, '告发以后书童躲着你，先生不再送书')
+$game_variables[158] += 260; L.ban_tick
+check.call(!$game_switches[153], '一个月后先生回来了')
+# 4 不管
+setup_ban.call; L.ban_start
+$game_variables[158] += 170; L.ban_tick
+check.call(L.ban_stage == :ignored && $game_switches[153] && !L.ban_reward_due?, '不管：到期书稿被搜出，先生被带走')
+# 搜身被搜走
+setup_ban.call; L.ban_start; L.ban_carry
+L.ban_seized
+check.call(L.ban_stage == :seized && $game_party.item_number(103) == 0 && $game_switches[153], '搜身被搜走书稿')
+$game_switches[153] = false
 # ---- 选项文字可以运行时决定；c.say 后面的选项并进同一个对话框
 $game_temp.message_text = ''
 WebMod.choice_labels = %w[甲 乙 丙]

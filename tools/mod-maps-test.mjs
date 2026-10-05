@@ -70,6 +70,13 @@ module ModCheck
       b = WebMod::Builder.new(WebMod.raw_load(path(id)), id, WebMod::FIRST_EDIT_EVENT_ID)
       WebMod.edits[id].each { |blk| blk.call(b) }
       raw.events.each do |eid, e|
+        # m.away 只在最后加一页空白页：去掉这一页再按下面的规则比较
+        if b.away_events.include?(eid) && cur.events[eid]
+          ce = Marshal.load(Marshal.dump(cur.events[eid]))
+          last = ce.pages.pop
+          errors << "地图 #{id} 的原版事件 #{eid}（#{e.name}）m.away 加的不是空白页" unless last.list.size == 1 && last.condition.switch1_valid
+          cur.events[eid] = ce
+        end
         if b.stocked_events.include?(eid) && b.touched_events.include?(eid)
           errors << "地图 #{id} 的原版事件 #{eid}（#{e.name}）除商品和交谈外被改动" unless cur.events[eid] && dump(without_talk(without_goods(cur.events[eid]))) == dump(without_talk(without_goods(e)))
         elsif b.rewritten_events.include?(eid)

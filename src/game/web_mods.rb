@@ -375,7 +375,7 @@ module WebMod
   # 地图构建器：WebMod.map / WebMod.edit 的块参数
   #--------------------------------------------------------------------------
   class Builder
-    attr_reader :map, :map_id, :tile_edits, :touched_events, :stocked_events, :rewritten_events
+    attr_reader :map, :map_id, :tile_edits, :touched_events, :stocked_events, :rewritten_events, :away_events
 
     def initialize(map, map_id, first_event_id)
       @map = map
@@ -385,6 +385,7 @@ module WebMod
       @touched_events = []
       @stocked_events = []
       @rewritten_events = []
+      @away_events = []
     end
 
     # 给原版 NPC 换上新的交谈内容。who 是事件编号或 NPC 名字（地图上唯一）。
@@ -573,6 +574,20 @@ module WebMod
       e = find_event(who)
       e.pages[0].list = Commands.new.tap { |c| block.call(c) }.finish
       @rewritten_events << e.id
+      e
+    end
+
+    # 原版人物在某个开关打开时暂时不在（剧情里被官府带走、出远门……）：在最后加一页空白页（后面的页优先），
+    # 原有各页一概不动
+    #   m.away '顾炎武', switch: 153
+    def away(who, switch:)
+      e = find_event(who)
+      pg = RPG::Event::Page.new
+      pg.condition.switch1_valid = true
+      pg.condition.switch1_id = switch
+      pg.through = true
+      e.pages << pg
+      @away_events << e.id
       e
     end
 

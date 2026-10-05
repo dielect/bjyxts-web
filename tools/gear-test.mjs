@@ -62,6 +62,7 @@ scan = lambda do |list|
       c.parameters[0].scan(/gain_(weapon|armor)\((\d+)/) { |k, i| src[k.to_sym] << i.to_i }
       src[:weapon] += WebJianghu::HEIFENG.select { |k, _| k == :weapon }.map(&:last) if c.parameters[0].include?('HEIFENG')
       src[:armor] += WebJianghu::HEIFENG.select { |k, _| k == :armor }.map(&:last) if c.parameters[0].include?('HEIFENG')
+      src[:armor] += [116, 118] if c.parameters[0].include?('bookstall_goods')      # 书摊（货随剧情变）
       if c.parameters[0].include?('peddler_stock')
         WebJianghu::PEDDLER.each { |k, i| src[k] << i if src[k] }      # 货郎也卖书（物品）
       end
