@@ -95,6 +95,34 @@ check.call(avail.call(10, 15), '有没听过的传闻时应出现')
 $game_switches[110] = $game_switches[112] = true
 check.call(!avail.call(10, 15), '传闻都听过了不该再出现')
 
+# 第二批：黑风寨、捕头、六扇门差事、比武招亲、货郎
+reset.call
+check.call(!avail.call(12), '没打过山贼头目，黑风寨不该出现')
+$game_variables[162] = 3
+check.call(avail.call(12), '打败头目 3 次后黑风寨应出现')
+[[:weapon, 44], [:armor, 78], [:armor, 86], [:armor, 100]].each { |k, i| k == :weapon ? $game_party.gain_weapon(i, 1) : $game_party.gain_armor(i, 1) }
+check.call(!avail.call(12), '黑风寨套集齐后不再出现')
+check.call(!avail.call(13), '行侠不够，捕头不该出现')
+$game_variables[163] = 4
+check.call(avail.call(13) && !avail.call(14), '行侠 4 次后捕头相邀，差事要等入门')
+$game_switches[117] = true
+check.call(!avail.call(13) && avail.call(14), '入了六扇门后只有差事')
+$game_variables[160] = 100
+check.call(!avail.call(14), '变成邪派后不再派差事')
+reset.call
+check.call(avail.call(15, 15) && !avail.call(15), '比武招亲只在镇上')
+$game_variables[157] = 15
+check.call(!avail.call(15, 15), '不到 16 岁不能比武招亲')
+st = WebJianghu.peddler_stock
+check.call(st.size == 3 && st.uniq.size == 3 && st.all? { |k, i| WebJianghu::PEDDLER.include?([k, i]) }, "货郎的货：#{st.inspect}")
+WebMod.open_shop(st)
+check.call($game_temp.shop_calling && $game_temp.shop_goods.size == 3 && $game_temp.shop_type == 1, '货郎开店')
+$game_temp.shop_calling = false
+# 掉一件还没有的
+$game_party.lose_armor(86, 99)
+WebMod.roll_loot([[:missing, [[:armor, 78], [:armor, 86]], 1]])
+check.call($trea1 == '黑风大氅', "应掉还没有的黑风大氅，实际 #{$trea1}")
+
 # 走路计数：野外每步 2，镇上 1，不在奇遇区域不计
 reset.call
 WebEncounter.instance_variable_set(:@count, 10)

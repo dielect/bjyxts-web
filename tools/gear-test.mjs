@@ -128,8 +128,8 @@ check.call($npc_data[25] == 15, "迟滞：#{$npc_data[25]}")
 
 # 防御
 use.call([:dodge, chance: 100])
-a.damage = 0
-check.call(WebGear.dodge?(a) && a.damage == 'Miss', '闪避')
+hits = 300.times.count { a.damage = 0; WebGear.dodge?(a) && a.damage == 'Miss' }
+check.call(hits.between?(80, 160), "闪避最多 40%：300 次里躲开 #{hits} 次")
 use.call([:dodge, chance: 0])
 check.call(!WebGear.dodge?(a), '闪避 0% 不触发')
 hurt = lambda { |dmg| a.hp = 500 - dmg; a.damage = dmg; en.hp = 300; $defend_text = ''; WebGear.after_hurt(en, a) }

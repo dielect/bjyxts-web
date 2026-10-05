@@ -15,8 +15,9 @@
 #   10 江湖传闻   镇上郊外 茶客闲聊：两处藏宝、珍珑棋局、老乞丐的线索
 #
 #  编号：敌人 145～149；物品 25、26；公共事件 27（使用武学残页）
+#        变量 162 打败山贼头目的次数  163 行侠次数（恶霸、山贼，正派时）
 #        开关 107 救了温青  108 搜了温青  109 老汉送过鞋  110/111 西北藏宝 听说/已取
-#             112/113 五指山大石 听说/已取  114 听说珍珑棋局  115 听说老乞丐  116 得到过灌铅骰子
+#             112/113 五指山大石 听说/已取  114 听说珍珑棋局  115 听说老乞丐  116 得到过灌铅骰子  120 得到君子剑
 #        追杀数是原版的变量 159，道德值 160
 #==============================================================================
 
@@ -96,7 +97,11 @@ bandit = lambda do |c, enemy, toll, loot, share, exp, pot|
   end
   fight = lambda do
     c.fight(enemy, loot: loot,
-      win: -> { c.reward exp: exp, pot: pot },
+      win: lambda {
+        c.reward exp: exp, pot: pot
+        c.variable(162, 1, 1) if enemy == 146         # 打败山贼头目的次数（黑风寨，见 080）
+        c.if_good { c.variable(163, 1, 1) }            # 行侠次数（捕头相邀，见 080）
+      },
       killed: -> { c.text '为民除害，路过的乡亲们都松了口气。'; c.reward morality: 2 },
       spared: -> { c.text '山贼磕头如捣蒜，连滚带爬地逃进了林子。' },
       escape: -> { c.text '你拔腿就跑，身后传来一阵哄笑。' },
@@ -122,7 +127,7 @@ end
 WebEncounter.add 1, '山贼劫道', where: :wild, weight: 3, cooldown: 3 do |c|
   c.if_variable(19, 150000, 1) do
     c.text '一声呼哨，林子里窜出一伙山贼，为首的独眼汉子扛着一口鬼头刀：“此山是我开，此树是我栽！”'
-    bandit.call(c, 146, 1000, [[:weapon, 35, 1, 15], [:armor, 34, 1, 30]], 1500, 600, 150)
+    bandit.call(c, 146, 1000, [[:weapon, 35, 1, 15], [:armor, 34, 1, 30], [:weapon, 66, 1, 10]], 1500, 600, 150)
   end.else do
     c.text '路边草丛里跳出一个手持钢刀的山贼：“此山是我开，此树是我栽，要想从此过，留下买路钱！”'
     bandit.call(c, 145, 100, [[:armor, 32, 1, 30]], 400, 150, 40)
@@ -293,6 +298,14 @@ WebEncounter.add 7, '恶霸欺人', where: %i[wild suburb town], weight: 2, cool
             c.switch(109)
           end
           c.reward exp: 200, pot: 60, morality: 3
+          c.variable(163, 1, 1)
+          c.if_script('$game_variables[163] >= 5 && !$game_switches[120]') do
+            c.text '围观的人群里走出一位青衫老者，捋须点头：“少侠屡次路见不平，有古君子之风。”'
+            c.text '“老夫年轻时也练过几天剑，这口君子剑跟了我四十年，今日赠与少侠。”'
+            c.gain(:weapon, 51)
+            c.switch(120)
+            c.text '得到了君子剑！'
+          end
         },
         spared: -> { c.text '恶霸捂着脸跑了，临走还撂下一句狠话。' },
         lose: -> { c.text '恶霸把你推倒在地，朝老汉的菜筐踹了一脚，扬长而去。' })

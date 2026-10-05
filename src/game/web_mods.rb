@@ -89,10 +89,33 @@ module WebMod
     { item: $data_items, weapon: $data_weapons, armor: $data_armors }.fetch(kind)
   end
 
+  #   [:missing, [[:armor, 78], [:armor, 86]], 1, 几率]：从列表里挑一件身上还没有的（都有了就随便一件）
   def self.roll_loot(loot)
+    loot = loot.map do |e|
+      next e unless e[0] == :missing
+      list = e[1]
+      pick = list.find { |k, i| owned(k, i) == 0 } || list.sample
+      [pick[0], pick[1], e[2], e[3]]
+    end
     @loot = loot.select { |_, _, _, chance| chance.nil? || rand(100) < chance }
     names = (0...4).map { |i| (k = @loot[i]) ? data_of(k[0])[k[1]].name : '' }
     $trea1, $trea2, $trea3, $trea4 = names
+  end
+
+  def self.owned(kind, id)
+    case kind
+    when :item then $game_party.item_number(id)
+    when :weapon then $game_party.weapon_number(id)
+    when :armor then $game_party.armor_number(id)
+    end
+  end
+
+  # 运行时决定货单的商店（江湖货郎等）：goods 为 [[:weapon, 48], [:armor, 80]]
+  def self.open_shop(goods)
+    $game_temp.shop_type = 1
+    $game_temp.battle_abort = true
+    $game_temp.shop_goods = goods.map { |kind, id| [Commands::SHOP_KINDS.fetch(kind), id] }
+    $game_temp.shop_calling = true
   end
 
   def self.give_loot
@@ -691,11 +714,12 @@ module WebMod
 
     # 打一场（江湖奇遇等事件里用）。敌人编号同敌群编号。
     #   loot：[[:armor, 32], [:weapon, 35, 1, 20]]，第 4 项是掉落几率（%，不写为 100），最多 4 种；
+    #         [:missing, [[:armor, 78], [:armor, 86]], 1, 50] 掉一件身上还没有的；
     #         开打前就掷好，结算窗口显示实际掉落的东西
     #   win：打赢后（无论杀不杀），killed / spared：打赢后选了“劈” / “不劈”；lose：打输；escape：逃走
     def fight(enemy_id, loot: [], can_escape: true, win: nil, killed: nil, spared: nil, escape: nil, lose: nil)
       raise ArgumentError, "fight #{enemy_id}：loot 最多 4 种" if loot.size > 4
-      loot.each { |kind, *| raise ArgumentError, "fight #{enemy_id}：loot 种类应是 :item / :weapon / :armor" unless ITEM_CODES[kind] }
+      loot.each { |kind, *| raise ArgumentError, "fight #{enemy_id}：loot 种类应是 :item / :weapon / :armor / :missing" unless ITEM_CODES[kind] || kind == :missing }
       script "WebMod.roll_loot(#{loot.inspect})"
       battle(enemy_id, can_escape: can_escape, can_lose: true,
         win: lambda {
