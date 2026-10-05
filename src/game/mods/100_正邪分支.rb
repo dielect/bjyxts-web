@@ -172,7 +172,7 @@ end
 #--------------------------------------------------------------------------
 # 22 血衣楼杀手（正道：收集血衣令残片）
 #--------------------------------------------------------------------------
-WebEncounter.add 22, '血衣楼杀手', where: :wild, weight: 6, cooldown: 1,
+WebEncounter.add 22, '血衣楼杀手', combat: true, where: :wild, weight: 6, cooldown: 1,
                  if: -> { R.route == :good && R.stage == 1 } do |c|
   c.text '路边一个樵夫忽然扔下柴担，袖中寒光一闪——是血衣楼的杀手！'
   c.fight(154, loot: [[:item, 27]],
@@ -194,7 +194,7 @@ end
 #--------------------------------------------------------------------------
 # 24 暗杀委托  25 六扇门总捕（邪道）
 #--------------------------------------------------------------------------
-WebEncounter.add 24, '暗杀委托', where: %i[wild suburb], weight: 6, cooldown: 1,
+WebEncounter.add 24, '暗杀委托', combat: true, where: %i[wild suburb], weight: 6, cooldown: 1,
                  if: -> { R.route == :evil && R.stage == 1 } do |c|
   c.text '斗笠人又来了，递给你一个蜡丸，里面是一张纸条。'
   c.one_of '“目标：威远镖局的镖头。三天后过野狼坡。”',
@@ -217,7 +217,7 @@ WebEncounter.add 24, '暗杀委托', where: %i[wild suburb], weight: 6, cooldown
     lose: -> { c.text '镖头比你想的硬，你只好先撤。' })
 end
 
-WebEncounter.add 25, '六扇门总捕', where: %i[wild suburb town], weight: 8, cooldown: 1,
+WebEncounter.add 25, '六扇门总捕', combat: true, where: %i[wild suburb town], weight: 8, cooldown: 1,
                  if: -> { R.hunted? } do |c|
   c.text '十几个公差忽然从四面围上来，当中一人须发花白，目光如电。'
   c.text '“六扇门总捕在此。血衣楼的杀手，今天就跟我回去吧。”'
@@ -238,7 +238,7 @@ end
 #--------------------------------------------------------------------------
 # 26 两头不讨好  27 独行侠（独行）
 #--------------------------------------------------------------------------
-WebEncounter.add 26, '两头不讨好', where: %i[wild suburb], weight: 5, cooldown: 2,
+WebEncounter.add 26, '两头不讨好', combat: true, where: %i[wild suburb], weight: 5, cooldown: 2,
                  if: -> { R.route == :alone && R.count < 5 && !R.sw(R::DONE) } do |c|
   after = lambda do
     c.variable(R::COUNT, 1, 1)

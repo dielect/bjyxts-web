@@ -63,6 +63,13 @@ PATCHES = [
     ('101', 'success = rand(100) < [40 * actors_agi / enemies_agi,80].min', 'success = WebGear.escape? || rand(100) < [40 * actors_agi / enemies_agi,80].min', 1),
     # 正邪分支：走完一条路线时，结局称号用路线称号（天下名捕 / 血衣楼主 / 独来独往，见 mods/100_正邪分支.rb）
     ('089', '    i=5 if $game_variables[160]==160\n', '    i=5 if $game_variables[160]==160\n    i=WebRoute.title_index(i)\n', 1),
+    # 练功不能进行时的提示框：宽度按字节算（同 005、090），否则“你受伤了……”挤成一团
+    ('099', '@msg.length*8', '@msg.bytesize*8', 4),
+    # 战斗胜利后“劈还是不劈”：改成屏幕中间的小对话框，“劈 / 不劈”左右并排（原版是顶部一行问句 + 整屏宽的上下两项“确定 / 放弃”）
+    ('100', '@yesno=Window_Command.new(640,["确定","放弃"],1)\n    @yesno.y=64', '@yesno=Window_Command.new(400,["劈","不劈"],2)\n    @yesno.x=120\n    @yesno.y=232', 1),
+    ('101', '      @help_window.draw_words($game_actors[1].name+"这一刀是劈还是不劈呢？")\n',
+            '      @help_window.visible=false\n      @kill_ask=Window_Base.new(120,168,400,64)\n      @kill_ask.contents=Bitmap.new(368,32)\n      @kill_ask.contents.font.color.set(0,0,0)\n      @kill_ask.contents.draw_text(0,0,368,32,$game_actors[1].name+"这一刀是劈还是不劈呢？",1)\n      @kill_ask.z=1000\n', 1),
+    ('101', '            @yesno.visible=false\n            @help_window.visible=true\n', '            @yesno.visible=false\n            @kill_ask.dispose\n            @help_window.visible=true\n', 1),
     ('056', 'if text.size<=75', 'if text.bytesize<=75', 1),
     ('056', 'help_text[0]=text.slice(0,75)+" →"', 'help_text[0]=RGWeb.bslice(text,0,75)+" →"', 1),
     ('056', 'help_text[1]="← "+text.slice(75,text.size-75)', 'help_text[1]="← "+RGWeb.bslice(text,75,text.bytesize-75)', 1),

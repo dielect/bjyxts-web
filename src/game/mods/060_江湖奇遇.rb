@@ -124,7 +124,7 @@ bandit = lambda do |c, enemy, toll, loot, share, exp, pot|
   end
 end
 
-WebEncounter.add 1, '山贼劫道', where: :wild, weight: 3, cooldown: 3 do |c|
+WebEncounter.add 1, '山贼劫道', combat: true, where: :wild, weight: 2, cooldown: 4 do |c|
   c.if_script('WebRoute.route == :evil && WebRoute.sw(WebRoute::DONE)') do      # 血衣楼主（100_正邪分支.rb）
     c.text '一伙山贼从林子里窜出来，看清是你，扑通扑通跪了一地：“楼、楼主饶命！小的们有眼无珠……”'
     c.text '为首的捧上一包银子：“这点孝敬，不成敬意！”'
@@ -192,7 +192,7 @@ WebEncounter.add 3, '温青报恩', where: %i[wild suburb town], weight: 5, once
   c.text '得到了秋水剑！潜能增加了三百点。'
 end
 
-WebEncounter.add 4, '温青寻仇', where: %i[wild suburb town], weight: 5, once: true, after: [2, 3],
+WebEncounter.add 4, '温青寻仇', combat: true, where: %i[wild suburb town], weight: 5, once: true, after: [2, 3],
                  if: -> { $game_switches[108] } do |c|
   fight = lambda do
     c.fight(147, loot: [[:weapon, 34]],
@@ -288,7 +288,7 @@ end
 #--------------------------------------------------------------------------
 # 7 恶霸欺人（正派）  8 落单行商（邪派）
 #--------------------------------------------------------------------------
-WebEncounter.add 7, '恶霸欺人', where: %i[wild suburb town], weight: 2, cooldown: 4,
+WebEncounter.add 7, '恶霸欺人', combat: true, where: %i[wild suburb town], weight: 2, cooldown: 4,
                  if: -> { WebEncounter.good? } do |c|
   c.text '一个满脸横肉的恶霸揪着卖菜老汉的衣领。'
   c.text '“这个月的份子钱呢？拿不出来就砸了你的摊子！”'
@@ -340,7 +340,7 @@ end
 #--------------------------------------------------------------------------
 # 9 赏金猎人：作恶的后果
 #--------------------------------------------------------------------------
-WebEncounter.add 9, '赏金猎人', where: %i[wild suburb], weight: 4, cooldown: 3,
+WebEncounter.add 9, '赏金猎人', combat: true, where: %i[wild suburb], weight: 4, cooldown: 3,
                  if: -> { ($game_variables[164] >= 2 || $game_variables[160] < 64) && WebGear.value(:no_bounty) == 0 && !WebRoute.hunted? } do |c|
   fight = lambda do
     c.fight(149, loot: [[:weapon, 36, 1, 25], [:armor, 35, 1, 25]],

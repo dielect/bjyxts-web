@@ -16,15 +16,19 @@
 #    cooldown   发生后，至少再经过几次别的奇遇才会再次出现
 #    after      [奇遇编号, n]：那段奇遇发生过、并且之后又经过了 n 次奇遇（用于“日后报恩 / 寻仇”）
 #    if         额外条件（lambda），例如 -> { WebEncounter.good? }
+#    combat     这段奇遇会打起来（含可以选择动手的）。两段战斗奇遇之间至少隔一段不打架的
 #
-#  节奏：野外每走一步计 2，郊外和镇上计 1，计满 60～120 检查一次；
-#        刚发生过的两段奇遇不会紧接着重复（池里只剩它们时除外）。
-#  编号登记：变量 253 奇遇总次数，254～255 最近两段奇遇，261～300 各奇遇的发生记录（docs/内容设计思路.md 0.4）
+#  节奏：野外每走一步计 2，郊外和镇上计 1，计满 100～180 时有七成几率来一段（大地图约 50～90 步一次）；
+#        刚发生过的两段奇遇不会紧接着重复（池里只剩它们时除外）；
+#        战斗奇遇之后，下一段一定是不打架的，池里只剩战斗奇遇时这次就不来。
+#  编号登记：变量 253 奇遇总次数，254～255 最近两段奇遇，256 上一段战斗奇遇的序号，
+#            261～300 各奇遇的发生记录（docs/内容设计思路.md 0.4）
 #  回归测试：node tools/encounter-test.mjs
 #==============================================================================
 module WebEncounter
   VAR_TOTAL   = 253
   VAR_RECENT  = [254, 255]
+  VAR_COMBAT  = 256                              # 上一段战斗奇遇发生在第几次奇遇
   VAR_STAMP   = 260                              # 变量 260 + 编号
   MAX_ID      = 40
 
@@ -34,14 +38,16 @@ module WebEncounter
     town:   [3, 5, 15],
   }
   STEP_COST = { wild: 2, suburb: 1, town: 1 }
-  COUNT_MIN, COUNT_RANGE = 60, 60
+  COUNT_MIN, COUNT_RANGE = 100, 80
+  @chance = 70                                   # 计满后真正来一段的几率（%）
 
   @list = {}
 
   class << self
     attr_reader :list
+    attr_accessor :chance
 
-    def add(id, name, where:, weight: 1, once: false, cooldown: 0, after: nil, if: nil, &block)
+    def add(id, name, where:, weight: 1, once: false, cooldown: 0, after: nil, combat: false, if: nil, &block)
       cond = binding.local_variable_get(:if)
       raise ArgumentError, "WebEncounter #{id}：编号要在 1～#{MAX_ID}" unless (1..MAX_ID).include?(id)
       raise ArgumentError, "WebEncounter #{id}：重复定义" if @list[id]
@@ -50,7 +56,7 @@ module WebEncounter
       key = :"奇遇_#{id}"
       WebMod.auto_common_event(key, "奇遇-#{name}", &block)
       @list[id] = { id: id, name: name, maps: maps, weight: weight, once: once, cooldown: cooldown,
-                    after: after, cond: cond, key: key }
+                    after: after, combat: combat, cond: cond, key: key }
     end
 
     # ---- 存档里的记录
@@ -94,10 +100,17 @@ module WebEncounter
         n = since(a[0])
         return false if n.nil? || n < a[1]
       end
+      return false if e[:combat] && combat_rest?
       return false if e[:cond] && !e[:cond].call
       true
     rescue StandardError
       false
+    end
+
+    # 上一段是战斗奇遇：这次只来不打架的
+    def combat_rest?
+      last = $game_variables[VAR_COMBAT].to_i
+      last > 0 && last == total
     end
 
     def weight_of(e)
@@ -146,7 +159,13 @@ module WebEncounter
       return if busy?
       @ready = false
       reset_count
-      e = pick or return
+      return if rand(100) >= @chance
+      e = pick
+      unless e
+        # 战斗奇遇后只剩战斗奇遇可选：这次空过，下次照常（不然就再也不来了）
+        $game_variables[VAR_COMBAT] = 0 if combat_rest?
+        return
+      end
       start(e)
     end
 
@@ -163,6 +182,7 @@ module WebEncounter
       n = total + 1
       $game_variables[VAR_TOTAL] = n
       $game_variables[VAR_STAMP + e[:id]] = n
+      $game_variables[VAR_COMBAT] = n if e[:combat]
       $game_variables[VAR_RECENT[1]] = $game_variables[VAR_RECENT[0]]
       $game_variables[VAR_RECENT[0]] = e[:id]
       $game_temp.common_event_id = WebMod.auto_common_event_id(e[:key])

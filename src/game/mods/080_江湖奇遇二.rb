@@ -56,7 +56,7 @@ end
 #--------------------------------------------------------------------------
 # 12 黑风寨
 #--------------------------------------------------------------------------
-WebEncounter.add 12, '黑风寨', where: :wild, weight: 4, cooldown: 4,
+WebEncounter.add 12, '黑风寨', combat: true, where: :wild, weight: 4, cooldown: 4,
                  if: -> { $game_variables[162] >= 3 && !WebJianghu.heifeng_done? } do |c|
   fight = lambda do
     c.fight(150, loot: [[:missing, WebJianghu::HEIFENG, 1]],
@@ -131,7 +131,7 @@ WebEncounter.add 13, '捕头相邀', where: %i[wild suburb town], weight: 5, coo
   end
 end
 
-WebEncounter.add 14, '六扇门差事', where: %i[wild suburb], weight: 3, cooldown: 3,
+WebEncounter.add 14, '六扇门差事', combat: true, where: %i[wild suburb], weight: 3, cooldown: 3,
                  if: -> { $game_switches[117] && WebEncounter.good? } do |c|
   c.text '一个公差快马赶来，递上一纸公文：“周捕头有令，江洋大盗在附近出没，请少侠缉拿！”'
   c.text '不多时，你在路边茶棚里认出了画像上的人。那人也认出了你，拔剑就走。'
@@ -144,7 +144,7 @@ end
 #--------------------------------------------------------------------------
 # 15 比武招亲
 #--------------------------------------------------------------------------
-WebEncounter.add 15, '比武招亲', where: :town, weight: 3, cooldown: 3,
+WebEncounter.add 15, '比武招亲', combat: true, where: :town, weight: 3, cooldown: 3,
                  if: -> { !$game_switches[118] && WebEncounter.age >= 16 } do |c|
   c.if_script('$gender == "女"') do
     c.text '街口搭起一座擂台，一位员外高声道：“犬子比武招亲！哪位姑娘打赢他，老夫以鸳鸯剑为聘！”'

@@ -183,6 +183,25 @@ reset.call
 $game_switches[R::ALONE] = true; $game_variables[R::COUNT] = 5
 check.call(avail.call(27) && !avail.call(26), '独行打退 5 次后独行侠来访')
 
+# 战斗奇遇之后，下一段一定不打架；只剩战斗奇遇时空过一次就恢复
+reset.call
+$game_map.setup(1)
+WebEncounter.start(1); $game_temp.common_event_id = 0
+check.call(WebEncounter.combat_rest? && !avail.call(7) && avail.call(5), '山贼之后应只有不打架的奇遇')
+WebEncounter.start(5); $game_temp.common_event_id = 0
+check.call(!WebEncounter.combat_rest? && avail.call(7), '隔了一段残页之后又可以打架')
+WebEncounter.start(7); $game_temp.common_event_id = 0
+saved = WebEncounter.list.dup
+WebEncounter.list.delete_if { |id, e| !e[:combat] }
+$game_player = Game_Player.new
+WebEncounter.chance = 100
+WebEncounter.instance_variable_set(:@ready, true)
+$game_temp.common_event_id = 0
+WebEncounter.update
+check.call($game_temp.common_event_id == 0 && !WebEncounter.combat_rest?, '只剩战斗奇遇时空过一次，并解除限制')
+WebEncounter.list.replace(saved)
+check.call(%w[1 4 7 9 12 14 15 22 24 25 26].all? { |i| WebEncounter.list[i.to_i][:combat] } && !WebEncounter.list[5][:combat], '战斗奇遇的标记')
+
 # 走路计数：野外每步 2，镇上 1，不在奇遇区域不计
 reset.call
 WebEncounter.instance_variable_set(:@count, 10)
@@ -199,6 +218,7 @@ check.call(WebEncounter.instance_variable_get(:@ready), '镇上走 10 步应攒�
 $game_player = Game_Player.new
 $game_player.moveto(5, 5)
 $game_temp.common_event_id = 0
+WebEncounter.chance = 100
 WebEncounter.update
 check.call($game_temp.common_event_id > 0 && WebEncounter.total == 1, '攒满后应启动一段奇遇')
 check.call(!WebEncounter.instance_variable_get(:@ready), '启动后应重新计步')
