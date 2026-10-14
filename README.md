@@ -4,7 +4,7 @@
 
 原游戏作者：绝爱仙剑ㄝ宝宝。原游戏版本为 **PC V1.21**；网页版独立维护版本号，当前为 **v1.0.0**，见 [VERSION](VERSION)。
 
-[快速开始](#快速开始) · [操作与存档](#操作与存档) · [开发指南](docs/开发指南.md) · [问题反馈](https://github.com/dielect/bjyxts-web/issues) · [许可说明](LICENSE.md)
+[在线试玩](https://bjyxts-web.pages.dev/) · [快速开始](#快速开始) · [操作与存档](#操作与存档) · [开发指南](docs/开发指南.md) · [问题反馈](https://github.com/dielect/bjyxts-web/issues) · [许可说明](LICENSE.md)
 
 ## 主要特色
 
