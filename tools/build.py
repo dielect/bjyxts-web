@@ -44,7 +44,7 @@ end
 
 # (script number, old, new, count)  count=None means "at least once"
 PATCHES = [
-    # 读档防作弊检查（经验/潜能增速、数值上限等）：本项目自用不发行，按需求关闭
+    # 读档防作弊检查（经验/潜能增速、数值上限等）：网页版按设计关闭，详见改动说明
     ('086', 'def save_test(p_time)', 'def save_test(p_time); return false # 网页版：关闭读档防作弊检查', 1),
     ('088', 'name_thread=Thread.new{ActorNameInput(1)}', 'ActorNameInput(1)', 1),
     ('088', 'name_thread.exit', '', 1),
@@ -299,6 +299,10 @@ def main():
     json.dump(manifest, open(os.path.join(GAME, 'manifest.json'), 'w', encoding='utf-8'), ensure_ascii=False, indent=0)
     # 协议第 4 条：发布时附带改动说明
     shutil.copy2(os.path.join(ROOT, 'docs', '改动说明.txt'), os.path.join(OUT, '改动说明.txt'))
+    # 静态部署时一并保留许可范围、第三方署名和许可全文。
+    for notice in ('LICENSE.md', 'THIRD_PARTY_NOTICES.md'):
+        shutil.copy2(os.path.join(ROOT, notice), os.path.join(OUT, notice))
+    copy_tree(os.path.join(ROOT, 'licenses'), os.path.join(OUT, 'licenses'))
     subprocess.run([shutil.which('npx') or 'npx', 'esbuild', 'src/main.js', '--bundle', '--format=iife', '--target=es2020',
                     '--loader:.rb=text', '--outfile=public/app.js', '--minify'], cwd=ROOT, check=True)
     subprocess.run([shutil.which('npx') or 'npx', 'esbuild', 'src/diagnostics.js', '--bundle', '--format=iife', '--target=es2020',

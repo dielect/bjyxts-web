@@ -1,1 +1,14 @@
-{"name":"rgssweb","private":true,"type":"module","scripts":{"build":"node build.mjs"},"dependencies":{"@bjorn3/browser_wasi_shim":"^0.4.2","@ruby/4.0-wasm-wasi":"2.10.1","@ruby/wasm-wasi":"2.10.1","esbuild":"^0.28.2"}}
+{
+  "name": "rgssweb",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "python3 tools/build.py"
+  },
+  "dependencies": {
+    "@bjorn3/browser_wasi_shim": "^0.4.2",
+    "@ruby/4.0-wasm-wasi": "2.10.1",
+    "@ruby/wasm-wasi": "2.10.1",
+    "esbuild": "^0.28.2"
+  }
+}
