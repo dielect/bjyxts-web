@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-build="1.0.0+202610141425">
+<html lang="zh-CN" data-build="1.0.0+202610141622">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -64,21 +64,23 @@ body.pad-on #controls { display: block; }
 #dpad .dir.on { background: var(--g-ink); }
 #dpad .dir.on::before { background: var(--g-hi); }
 
+/* 双圆操作键：透明容器，右上确定、左下取消，保留掌机拇指布局。 */
 #btns { position: fixed; right: calc(var(--safe-right) + (var(--side) - var(--pad)) / 2);
   top: calc(var(--safe-top) + (100% - var(--safe-top) - var(--safe-bottom)) / 2);
-  transform: translateY(-38%); width: var(--pad); height: var(--pad); z-index: 5; }
-.btn { position: absolute; border-radius: 0; display: flex; align-items: center; justify-content: center;
-  background: var(--g); border: 3px solid var(--g-ink); color: var(--g-ink);
-  box-shadow: inset 0 0 0 2px var(--g-hi), 4px 4px 0 var(--g-shadow);
-  font-size: calc(var(--pad) * .13); font-weight: normal; letter-spacing: .1em; touch-action: none; font-family: inherit; padding: 0; }
-/* 按下：反色（墨底亮字），像游戏里的选中光标；阴影收起、按键位移到阴影处 */
-.btn.on { background: var(--g-ink); color: var(--g-hi); transform: translate(3px, 3px); box-shadow: inset 0 0 0 2px var(--g-dk), 1px 1px 0 var(--g-shadow); }
-.btn.c { width: 54%; height: 54%; right: 0; top: 10%; }
-.btn.b { width: 44%; height: 44%; left: 0; bottom: 2%; }
-.btn.small { width: 44%; height: 20%; font-size: calc(var(--pad) * .11); top: -23%; white-space: nowrap; letter-spacing: .15em;
-  box-shadow: inset 0 0 0 2px var(--g-hi), 3px 3px 0 var(--g-shadow); }
-.btn.small.on { transform: translate(3px, 3px); box-shadow: inset 0 0 0 2px var(--g-dk); }
-.btn.lpage { left: 0; } .btn.rpage { right: 0; }
+  transform: translateY(-38%); width: var(--pad); height: var(--pad); z-index: 5;
+  background: transparent; border: 0; box-shadow: none; pointer-events: none; }
+.btn { position: absolute; width: 52%; height: 52%; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; pointer-events: auto;
+  background: transparent; border: 2px solid var(--g); color: var(--g-hi);
+  box-shadow: 0 2px 0 var(--g-shadow);
+  font: 500 clamp(14px, calc(var(--pad) * .115), 21px) / 1 system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  letter-spacing: .04em; touch-action: none; padding: 0; }
+.btn.c { right: 0; top: 4%; background: var(--g); color: var(--g-ink); }
+.btn.b { left: 0; bottom: 4%; }
+.btn.on { background: var(--g-dk); border-color: var(--g-hi); color: var(--g-hi);
+  transform: translateY(2px); box-shadow: none; }
+.btn.c.on { background: var(--g-hi); color: var(--g-ink); }
+.btn:focus-visible { outline: 2px solid var(--g-hi); outline-offset: 4px; }
 
 #gear { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 8px); right: calc(env(safe-area-inset-right, 0px) + 8px);
   z-index: 8; width: 38px; height: 38px; border-radius: 0; border: 2px solid var(--g-ink);
@@ -233,8 +235,6 @@ body.portrait #rotate { display: flex; }
     <div class="dir l" data-code="4"></div><div class="dir r" data-code="6"></div>
   </div>
   <div id="btns">
-    <button class="btn small lpage" data-code="17">上页</button>
-    <button class="btn small rpage" data-code="18">下页</button>
     <button class="btn c" data-code="13">确定</button>
     <button class="btn b" data-code="12">取消</button>
   </div>
@@ -255,7 +255,7 @@ body.portrait #rotate { display: flex; }
   <button id="start-btn">开始游戏</button>
   <div class="hint" data-diagnostic-status></div>
   <div class="cover-foot">
-    <span class="ver">网页版 v1.0.0 · 2026-10-14 14:25</span>
+    <span class="ver">网页版 v1.0.0 · 2026-10-14 16:22</span>
     <span class="keys">电脑：方向键移动，Enter / 空格 确定，Esc / X 取消，Q / W 翻页　手机：请横屏，右上角 ⚙ 可导入导出存档</span>
     <button data-export-diagnostics>导出诊断日志</button>
   </div>
@@ -300,7 +300,7 @@ body.portrait #rotate { display: flex; }
         <p class="note" id="cheat-msg">修改立即生效。想保留请回到游戏，在菜单「功能」里存档。</p>
       </div>
       <h3 class="tag">关于</h3>
-      <p class="note">网页版 v1.0.0 · 2026-10-14 14:25</p>
+      <p class="note">网页版 v1.0.0 · 2026-10-14 16:22</p>
       <div class="grid"><button data-export-diagnostics>导出诊断日志</button></div>
       <p class="note" data-diagnostic-status></p>
     </section>
